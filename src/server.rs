@@ -26,30 +26,30 @@ impl ServerState {
 
 type SharedState = Arc<Mutex<ServerState>>;
 
-struct Server {
+pub struct Server {
     listener: TcpListener,
     state: SharedState,
 }
 
 impl Server {
-    async fn new(port: u16) -> Result<Self> {
+    pub async fn new(port: u16) -> Result<Self> {
         Ok(Self {
             listener: TcpListener::bind(("127.0.0.1", port)).await?,
             state: Arc::new(Mutex::new(ServerState::new())),
         })
     }
 
-    async fn run(&'static self) -> Result<()> {
+    pub async fn run(&self) -> Result<()> {
         loop {
             let (stream, addr) = self.listener.accept().await?;
+            let arc_state = self.state.clone();
             tokio::spawn(async move {
-                let _ = self.pre_handle(stream, addr).await;
+                let _ = Self::pre_handle(arc_state, stream, addr).await;
             });
         }
     }
 
-    async fn pre_handle(&self, stream: TcpStream, addr: SocketAddr) -> Result<()> {
-        let arc_state = self.state.clone();
+    async fn pre_handle(arc_state: SharedState, stream: TcpStream, addr: SocketAddr) -> Result<()> {
         let arc_stream = Arc::new(stream);
 
         arc_state
@@ -71,6 +71,7 @@ impl Server {
         loop {
             stream.readable().await?;
             stream.try_read(&mut buf)?;
+            println!("received!");
 
             let command = serde_json::from_slice::<ClientCommand>(&buf)?;
             match command {
@@ -88,6 +89,8 @@ impl Server {
                         .unwrap()
                         .messages
                         .push((name.clone(), message.clone()));
+
+                    println!("[{}] {:?}", name, message);
 
                     let broadcast_msg =
                         serde_json::to_vec(&ServerCommand::NewMessage((name, message)))?;
