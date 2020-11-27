@@ -1,6 +1,6 @@
 [package]
 name = "chat"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Bugen Zhao <i@bugenzhao.com>"]
 edition = "2018"
 
@@ -16,3 +16,4 @@ serde_json = "*"
 futures = "*"
 log = "*"
 env_logger = "*"
+tui = "*"

@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate serde;
 
+mod app;
 mod client;
 mod error;
 mod message;
@@ -13,7 +14,10 @@ use crate::error::*;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "chat", about = "An example of async chat client/server with tokio.")]
+#[structopt(
+    name = "chat",
+    about = "An example of async chat client/server with tokio."
+)]
 pub enum Opt {
     Client {
         #[structopt(short, long, default_value = "127.0.0.1")]

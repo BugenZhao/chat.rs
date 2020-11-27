@@ -5,9 +5,10 @@ use futures::{
     stream::{SplitSink, SplitStream},
     StreamExt,
 };
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, sync::mpsc};
 use tokio_util::codec::{Framed, LinesCodec};
 
+use crate::app::{App, BasicApp};
 use crate::message::*;
 use crate::protocol::*;
 
@@ -38,6 +39,9 @@ impl Client {
         let (mut tx, mut rx) = Framed::new(stream, LinesCodec::new()) // split tcp stream data into framed line's
             .split::<String>(); // split the framed stream into two halves
 
+        let (msg_tx, msg_rx) = mpsc::unbounded_channel::<String>();
+        let (input_tx, mut input_rx) = mpsc::unbounded_channel::<String>();
+
         // recv task, rx moved
         tokio::spawn(async move {
             while let Some(result) = rx.next().await {
@@ -47,10 +51,11 @@ impl Client {
                             // deserialized into ServerCommand
                             match command {
                                 ServerCommand::NewMessage(user, message) => {
-                                    println!("[{}] {}", user, message);
+                                    msg_tx.send(format!("[{}] {}", user, message)).unwrap();
+                                    // println!("[{}] {}", user, message);
                                 }
                                 ServerCommand::ServerMessage(message) => {
-                                    println!("<SERVER> {}", message);
+                                    msg_tx.send(format!("<SERVER> {}", message)).unwrap();
                                 }
                             }
                         } else {
@@ -64,24 +69,21 @@ impl Client {
             }
         });
 
-        // send task
-        {
-            macro_rules! send {
-                ($msg:expr) => {
-                    tx.send(serde_json::to_string(&$msg).unwrap()).await?;
-                };
-            }
+        BasicApp::start(input_tx, msg_rx)?;
 
-            send!(ClientCommand::SetName(self.name.clone()));
-            loop {
-                // read messages from stdin and send them
-                let input = {
-                    let mut buf = String::new();
-                    std::io::stdin().read_line(&mut buf)?;
-                    buf
-                };
-                send!(ClientCommand::SendMessage(Message::Text(input)));
-            }
+        // send task
+        macro_rules! send {
+            ($msg:expr) => {
+                tx.send(serde_json::to_string(&$msg).unwrap()).await?;
+            };
         }
+
+        send!(ClientCommand::SetName(self.name.clone()));
+        while let Some(text) = input_rx.next().await {
+            // read messages from input_rx and send them
+            send!(ClientCommand::SendMessage(Message::Text(text)));
+        }
+
+        Ok(())
     }
 }
