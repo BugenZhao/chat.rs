@@ -95,7 +95,7 @@ pub struct Server {
 impl Server {
     pub async fn new(port: u16) -> Result<Self> {
         Ok(Self {
-            listener: TcpListener::bind(("127.0.0.1", port)).await?,
+            listener: TcpListener::bind(("0.0.0.0", port)).await?,
             state: Arc::new(Mutex::new(ServerState::new())),
         })
     }
