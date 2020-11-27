@@ -42,17 +42,19 @@ impl Client {
                         if let Ok(command) = serde_json::from_str::<ServerCommand>(&raw_str) {
                             match command {
                                 ServerCommand::NewMessage(user, message) => {
-                                    println!("[{}] {:?}", user, message);
+                                    println!("[{}] {}", user, message);
                                 }
                                 ServerCommand::ServerMessage(message) => {
-                                    println!("<SERVER> {:?}", message);
+                                    println!("<SERVER> {}", message);
                                 }
                             }
                         } else {
                             println!("error: unknown server command: {}", raw_str);
                         }
                     }
-                    Err(_) => {}
+                    Err(_) => {
+                        break;
+                    }
                 }
             }
         });

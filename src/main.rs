@@ -32,8 +32,11 @@ pub enum Opt {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let opt: Opt = Opt::from_args();
-    match opt {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+
+    match Opt::from_args() {
         Opt::Client { server, port, name } => {
             let client = client::Client::new(&name, &server, port);
             client.run().await?;

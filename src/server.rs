@@ -12,6 +12,8 @@ use tokio::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec};
 
+use log::*;
+
 use crate::message::*;
 use crate::protocol::*;
 
@@ -114,60 +116,68 @@ impl Server {
 
     async fn handle(transport: Transport, addr: SocketAddr, state: &SharedState) -> Result<()> {
         let mut peer = Peer::register(state.clone(), addr, transport).await?;
+        let mut name = "".to_string();
 
-        let mut name = "<Anonymous>".into();
+        macro_rules! server_log{
+            ($($x:expr),+) => {
+                info!("[{}({})] {}", addr, name, format!($($x),+));
+            }
+        }
+        macro_rules! send {
+            ($msg:expr) => {
+                peer.transport
+                    .send(serde_json::to_string(&$msg).unwrap())
+                    .await?;
+            };
+        }
+
+        server_log!("joined");
+
         while let Some(result) = peer.next().await {
             match result {
-                Ok(op) => {
-                    match op {
-                        ServerOperation::FromClient(command) => match command {
-                            ClientCommand::SetName(new_name) => {
-                                name = new_name;
+                Ok(op) => match op {
+                    ServerOperation::FromClient(command) => match command {
+                        ClientCommand::SetName(new_name) => {
+                            if new_name.is_empty() {
+                                continue;
                             }
-                            ClientCommand::SendMessage(message) => {
-                                let mut state = state.lock().await;
-                                state.messages.push((name.clone(), message.clone()));
+                            server_log!("change name to: {}", new_name);
+                            if name.is_empty() {
                                 state
-                                    .broadcast(ServerOperation::FromPeer(
-                                        name.clone(),
-                                        message.clone(),
-                                    ))
+                                    .lock()
+                                    .await
+                                    .broadcast(ServerOperation::FromServer(Message::Text(format!(
+                                        "Welcome, {}!",
+                                        new_name
+                                    ))))
                                     .await;
-                                println!("[{}({})] {:?}", addr, name, message);
                             }
-                        },
-                        ServerOperation::FromPeer(user, message) => {
-                            // TODO: ServerCommand
-                            peer.transport
-                                .send(
-                                    serde_json::to_string(&ServerCommand::NewMessage(
-                                        user, message,
-                                    ))
-                                    .unwrap(),
-                                )
-                                .await?;
+                            name = new_name;
                         }
-                        ServerOperation::FromServer(message) => {
-                            // TODO: ServerCommand
-                            peer.transport
-                                .send(
-                                    serde_json::to_string(&ServerCommand::ServerMessage(message))
-                                        .unwrap(),
-                                )
-                                .await?;
+                        _ if name.is_empty() => {
+                            continue;
                         }
+                        ClientCommand::SendMessage(message) => {
+                            let mut state = state.lock().await;
+                            state.messages.push((name.clone(), message.clone()));
+                            state
+                                .broadcast(ServerOperation::FromPeer(name.clone(), message.clone()))
+                                .await;
+                            server_log!("{:?}", message);
+                        }
+                    },
+                    ServerOperation::FromPeer(user, message) => {
+                        send!(&ServerCommand::NewMessage(user, message));
                     }
-                }
+                    ServerOperation::FromServer(message) => {
+                        send!(&ServerCommand::ServerMessage(message));
+                    }
+                },
                 Err(e) => {
-                    println!("error: {}", e);
-                    peer.transport
-                        .send(
-                            serde_json::to_string(&ServerCommand::ServerMessage(Message::Text(
-                                "What's that?".to_owned(),
-                            )))
-                            .unwrap(),
-                        )
-                        .await?;
+                    server_log!("error: {}", e);
+                    send!(&ServerCommand::ServerMessage(Message::Text(
+                        "What's that?".to_owned(),
+                    )));
                 }
             }
         }
@@ -176,6 +186,7 @@ impl Server {
             let mut state = state.lock().await;
             state.peers.remove(&addr);
             let leave_msg = Message::Text(format!("{} left", name));
+            server_log!("left");
             state
                 .broadcast(ServerOperation::FromServer(leave_msg))
                 .await;
