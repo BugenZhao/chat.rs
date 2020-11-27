@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["chat"] = [{"text":"impl Serialize for Message","synthetic":false,"types":[]},{"text":"impl Serialize for ClientCommand","synthetic":false,"types":[]},{"text":"impl Serialize for ServerCommand","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

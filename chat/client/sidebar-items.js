@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Client","The chat client"]],"type":[["Rx",""],["Transport",""],["Tx",""]]});
