@@ -5,13 +5,8 @@ use futures::{
     stream::{SplitSink, SplitStream},
     StreamExt,
 };
-use std::{collections::HashMap, net::SocketAddr};
-use std::{
-    io::Write,
-    sync::{Arc, Mutex},
-};
-use tokio::net::{TcpListener, TcpSocket, TcpStream};
-use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
+use tokio::net::TcpStream;
+use tokio_util::codec::{Framed, LinesCodec};
 
 use crate::message::*;
 use crate::protocol::*;
@@ -67,7 +62,7 @@ impl Client {
                 tx.send(serde_json::to_string(&$msg).unwrap()).await?;
             };
         }
-        
+
         send!(ClientCommand::SetName(self.name.clone()));
         loop {
             let input = {

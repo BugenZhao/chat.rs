@@ -10,7 +10,7 @@ use std::{
 use tokio::net::{TcpListener, TcpStream};
 use tokio::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
-use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
+use tokio_util::codec::{Framed, LinesCodec};
 
 use crate::message::*;
 use crate::protocol::*;
