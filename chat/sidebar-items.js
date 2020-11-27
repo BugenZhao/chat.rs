@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Opt",""]],"fn":[["main",""]],"mod":[["client",""],["error",""],["message",""],["protocol",""],["server",""]]});
+initSidebarItems({"enum":[["Opt",""]],"fn":[["main",""]],"mod":[["app",""],["client",""],["error",""],["message",""],["protocol",""],["server",""]]});

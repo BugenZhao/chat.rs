@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BasicApp",""]],"trait":[["App",""]],"type":[["Rx",""],["Tx",""]]});
