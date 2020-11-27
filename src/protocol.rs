@@ -1,14 +1,22 @@
-use crate::{message::Message, user::User};
+use crate::message::*;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum ClientCommand {
     SetName(String),
     SendMessage(Message),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum ServerCommand {
-    NewMessage((User, Message)),
+    NewMessage(User, Message),
+    ServerMessage(Message)
+}
+
+#[derive(Clone)]
+pub enum ServerOperation {
+    FromClient(ClientCommand),
+    FromPeer(User, Message),
+    FromServer(Message),
 }

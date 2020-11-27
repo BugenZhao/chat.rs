@@ -1,17 +1,66 @@
 use crate::error::*;
 
-use std::sync::{Arc, Mutex};
+use futures::SinkExt;
 use std::{collections::HashMap, net::SocketAddr};
+use std::{
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::stream::{Stream, StreamExt};
+use tokio::sync::{mpsc, Mutex};
+use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 
-use crate::message::Message;
-use crate::protocol::{ClientCommand, ServerCommand};
-use crate::user::User;
+use crate::message::*;
+use crate::protocol::*;
+
+type SharedState = Arc<Mutex<ServerState>>;
+type Transport = Framed<TcpStream, LinesCodec>;
+
+type Tx = mpsc::UnboundedSender<ServerOperation>;
+type Rx = mpsc::UnboundedReceiver<ServerOperation>;
+
+struct Peer {
+    transport: Transport,
+    rx: Rx,
+}
+
+impl Peer {
+    async fn register(state: SharedState, addr: SocketAddr, transport: Transport) -> Result<Self> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        state.lock().await.peers.insert(addr, tx);
+
+        Ok(Self { transport, rx })
+    }
+}
+
+impl Stream for Peer {
+    type Item = Result<ServerOperation>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // First poll the `UnboundedReceiver`.
+        if let Poll::Ready(Some(op)) = Pin::new(&mut self.rx).poll_next(cx) {
+            return Poll::Ready(Some(Ok(op)));
+        }
+
+        // Secondly poll the `Framed` stream.
+        let result: Option<_> = futures::ready!(Pin::new(&mut self.transport).poll_next(cx));
+        Poll::Ready(match result {
+            Some(Ok(de_str)) => {
+                let command = serde_json::from_str::<ClientCommand>(&de_str)?;
+                Some(Ok(ServerOperation::FromClient(command)))
+            }
+            Some(Err(e)) => Some(Err(e.into())),
+            _ => None,
+        })
+    }
+}
 
 struct ServerState {
     user_count: u32,
     messages: Vec<(User, Message)>,
-    all_streams: HashMap<SocketAddr, Arc<TcpStream>>,
+    peers: HashMap<SocketAddr, Tx>,
 }
 
 impl ServerState {
@@ -19,12 +68,17 @@ impl ServerState {
         Self {
             user_count: 0,
             messages: Vec::new(),
-            all_streams: HashMap::new(),
+            peers: HashMap::new(),
+        }
+    }
+
+    async fn broadcast(&mut self, op: ServerOperation) {
+        // broadcast to all peers
+        for (&_peer_addr, peer_tx) in self.peers.iter_mut() {
+            let _ = peer_tx.send(op.clone());
         }
     }
 }
-
-type SharedState = Arc<Mutex<ServerState>>;
 
 pub struct Server {
     listener: TcpListener,
@@ -44,63 +98,89 @@ impl Server {
             let (stream, addr) = self.listener.accept().await?;
             let arc_state = self.state.clone();
             tokio::spawn(async move {
-                let _ = Self::pre_handle(arc_state, stream, addr).await;
+                let _ = Self::pre_handle(stream, addr, arc_state).await;
             });
         }
     }
 
-    async fn pre_handle(arc_state: SharedState, stream: TcpStream, addr: SocketAddr) -> Result<()> {
-        let arc_stream = Arc::new(stream);
-
-        arc_state
-            .lock()
-            .unwrap()
-            .all_streams
-            .insert(addr, arc_stream.clone());
-
-        let _ = Self::handle(arc_stream, addr, &arc_state).await;
-
-        arc_state.lock().unwrap().all_streams.remove(&addr);
+    async fn pre_handle(stream: TcpStream, addr: SocketAddr, arc_state: SharedState) -> Result<()> {
+        let transport = Framed::new(stream, LinesCodec::new());
+        arc_state.lock().await.user_count += 1;
+        let _ = Self::handle(transport, addr, &arc_state).await;
+        arc_state.lock().await.user_count -= 1;
 
         Ok(())
     }
 
-    async fn handle(stream: Arc<TcpStream>, addr: SocketAddr, state: &SharedState) -> Result<()> {
-        let mut opt_name = Option::<String>::None;
-        let mut buf = [0u8; 4096];
-        loop {
-            stream.readable().await?;
-            stream.try_read(&mut buf)?;
-            println!("received!");
+    async fn handle(transport: Transport, addr: SocketAddr, state: &SharedState) -> Result<()> {
+        let mut peer = Peer::register(state.clone(), addr, transport).await?;
 
-            let command = serde_json::from_slice::<ClientCommand>(&buf)?;
-            match command {
-                ClientCommand::SetName(new_name) => {
-                    opt_name = Some(new_name);
-                }
-                ClientCommand::SendMessage(message) => {
-                    let name = opt_name
-                        .as_ref()
-                        .ok_or(Error::ChatError("no name".into()))?
-                        .to_owned();
-
-                    state
-                        .lock()
-                        .unwrap()
-                        .messages
-                        .push((name.clone(), message.clone()));
-
-                    println!("[{}] {:?}", name, message);
-
-                    let broadcast_msg =
-                        serde_json::to_vec(&ServerCommand::NewMessage((name, message)))?;
-                    for (&other_addr, other_stream) in state.lock().unwrap().all_streams.iter() {
-                        if addr != other_addr {
-                            let _ = other_stream.try_write(&broadcast_msg); // TODO: too inelegant!
+        let mut name = "<Anonymous>".into();
+        while let Some(result) = peer.next().await {
+            match result {
+                Ok(op) => {
+                    match op {
+                        ServerOperation::FromClient(command) => match command {
+                            ClientCommand::SetName(new_name) => {
+                                name = new_name;
+                            }
+                            ClientCommand::SendMessage(message) => {
+                                let mut state = state.lock().await;
+                                state.messages.push((name.clone(), message.clone()));
+                                state
+                                    .broadcast(ServerOperation::FromPeer(
+                                        name.clone(),
+                                        message.clone(),
+                                    ))
+                                    .await;
+                                println!("[{}({})] {:?}", addr, name, message);
+                            }
+                        },
+                        ServerOperation::FromPeer(user, message) => {
+                            // TODO: ServerCommand
+                            peer.transport
+                                .send(
+                                    serde_json::to_string(&ServerCommand::NewMessage(
+                                        user, message,
+                                    ))
+                                    .unwrap(),
+                                )
+                                .await?;
+                        }
+                        ServerOperation::FromServer(message) => {
+                            // TODO: ServerCommand
+                            peer.transport
+                                .send(
+                                    serde_json::to_string(&ServerCommand::ServerMessage(message))
+                                        .unwrap(),
+                                )
+                                .await?;
                         }
                     }
                 }
+                Err(e) => {
+                    println!("error: {}", e);
+                    peer.transport
+                        .send(
+                            serde_json::to_string(&ServerCommand::ServerMessage(Message::Text(
+                                "What's that?".to_owned(),
+                            )))
+                            .unwrap(),
+                        )
+                        .await?;
+                }
             }
         }
+
+        {
+            let mut state = state.lock().await;
+            state.peers.remove(&addr);
+            let leave_msg = Message::Text(format!("{} left", name));
+            state
+                .broadcast(ServerOperation::FromServer(leave_msg))
+                .await;
+        }
+
+        Ok(())
     }
 }

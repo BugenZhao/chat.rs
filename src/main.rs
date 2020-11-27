@@ -9,7 +9,6 @@ mod error;
 mod message;
 mod protocol;
 mod server;
-mod user;
 
 use crate::error::*;
 use structopt::StructOpt;
@@ -22,6 +21,8 @@ pub enum Opt {
         server: String,
         #[structopt(short, long, default_value = "30388")]
         port: u16,
+        #[structopt(short, long)]
+        name: String,
     },
     Server {
         #[structopt(short, long, default_value = "30388")]
@@ -33,8 +34,8 @@ pub enum Opt {
 async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
     match opt {
-        Opt::Client { server, port } => {
-            let client = client::Client::new("bugen", &server, port).await?;
+        Opt::Client { server, port, name } => {
+            let client = client::Client::new(&name, &server, port);
             client.run().await?;
         }
         Opt::Server { port } => {

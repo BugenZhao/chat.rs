@@ -1,62 +1,81 @@
 use crate::error::*;
 
-use std::sync::{Arc, Mutex};
+use futures::{
+    sink::SinkExt,
+    stream::{SplitSink, SplitStream},
+    StreamExt,
+};
 use std::{collections::HashMap, net::SocketAddr};
-use tokio::net::TcpStream;
+use std::{
+    io::Write,
+    sync::{Arc, Mutex},
+};
+use tokio::net::{TcpListener, TcpSocket, TcpStream};
+use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 
-use crate::message::Message;
-use crate::protocol::{ClientCommand, ServerCommand};
-use crate::user::User;
+use crate::message::*;
+use crate::protocol::*;
+
+type Transport = Framed<TcpStream, LinesCodec>;
+type Tx = SplitSink<Transport, String>;
+type Rx = SplitStream<Transport>;
 
 pub struct Client {
     name: String,
-    stream: Arc<TcpStream>,
+    server: String,
+    port: u16,
 }
 
 impl Client {
-    async fn send_command(&self, command: ClientCommand) -> Result<()> {
-        self.stream.writable().await?;
-        self.stream.try_write(&serde_json::to_vec(&command)?)?;
-
-        Ok(())
-    }
-
-    pub async fn new(name: &str, server: &str, port: u16) -> Result<Self> {
-        let stream = TcpStream::connect((server.to_owned(), port)).await?;
+    pub fn new(name: &str, server: &str, port: u16) -> Self {
         let client = Self {
             name: name.to_owned(),
-            stream: Arc::new(stream),
+            server: server.to_owned(),
+            port,
         };
-        Ok(client)
+        client
     }
 
     pub async fn run(&self) -> Result<()> {
-        self.send_command(ClientCommand::SetName(self.name.to_owned()))
-            .await?;
-        let stream = self.stream.clone();
-        tokio::spawn(async move {
-            let mut buf = [0u8; 4096];
-            loop {
-                stream.readable().await;
-                stream.try_read(&mut buf);
-                let command = serde_json::from_slice::<ServerCommand>(&buf).unwrap();
+        let stream = TcpStream::connect((self.server.to_owned(), self.port)).await?;
+        let (mut tx, mut rx) = Framed::new(stream, LinesCodec::new()).split::<String>();
 
-                match command {
-                    ServerCommand::NewMessage((name, message)) => {
-                        println!("[{}] {:?}", name, message);
+        tokio::spawn(async move {
+            while let Some(result) = rx.next().await {
+                match result {
+                    Ok(raw_str) => {
+                        if let Ok(command) = serde_json::from_str::<ServerCommand>(&raw_str) {
+                            match command {
+                                ServerCommand::NewMessage(user, message) => {
+                                    println!("[{}] {:?}", user, message);
+                                }
+                                ServerCommand::ServerMessage(message) => {
+                                    println!("<SERVER> {:?}", message);
+                                }
+                            }
+                        } else {
+                            println!("error: unknown server command: {}", raw_str);
+                        }
                     }
+                    Err(_) => {}
                 }
             }
         });
 
+        macro_rules! send {
+            ($msg:expr) => {
+                tx.send(serde_json::to_string(&$msg).unwrap()).await?;
+            };
+        }
+        
+        send!(ClientCommand::SetName(self.name.clone()));
         loop {
-            let msg_content = {
+            let input = {
                 let mut buf = String::new();
                 std::io::stdin().read_line(&mut buf)?;
                 buf
             };
-            self.send_command(ClientCommand::SendMessage(Message::Text(msg_content)))
-                .await?;
+            send!(ClientCommand::SendMessage(Message::Text(input)));
         }
     }
 }
