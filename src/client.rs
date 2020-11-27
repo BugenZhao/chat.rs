@@ -8,7 +8,7 @@ use futures::{
 use tokio::{net::TcpStream, sync::mpsc};
 use tokio_util::codec::{Framed, LinesCodec};
 
-use crate::app::{App, BasicApp};
+use crate::app::{BasicApp, TuiApp};
 use crate::message::*;
 use crate::protocol::*;
 
@@ -69,6 +69,9 @@ impl Client {
             }
         });
 
+        // tokio::spawn(async move {
+        //     let _ = TuiApp::app_loop(input_tx, msg_rx).await;
+        // });
         BasicApp::start(input_tx, msg_rx)?;
 
         // send task
