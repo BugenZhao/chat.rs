@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["BasicApp",""]],"trait":[["App",""]],"type":[["Rx",""],["Tx",""]]});
+initSidebarItems({"enum":[["TuiAppEvent",""]],"struct":[["BasicApp",""],["TuiApp",""]],"type":[["Rx",""],["Tx",""]]});
