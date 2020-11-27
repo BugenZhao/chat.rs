@@ -8,8 +8,6 @@ pub enum Error {
     NetworkError(#[from] std::io::Error),
     #[error("serde error: {0}")]
     SerdeError(#[from] serde_json::error::Error),
-    #[error("chat error: {0}")]
-    ChatError(String),
     #[error("codec error: {0}")]
     CodecError(#[from] tokio_util::codec::LinesCodecError),
 }
