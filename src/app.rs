@@ -11,7 +11,7 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::{client::ClientInput, error::*};
+use crate::{client::ClientInput, error::*, protocol::ServerCommand};
 
 type Tx<T> = mpsc::UnboundedSender<T>;
 type Rx<T> = mpsc::UnboundedReceiver<T>;
@@ -23,7 +23,7 @@ type Rx<T> = mpsc::UnboundedReceiver<T>;
 pub struct BasicApp {}
 
 impl BasicApp {
-    pub fn start(input_tx: Tx<ClientInput>, mut msg_rx: Rx<String>) -> Result<()> {
+    pub fn start(input_tx: Tx<ClientInput>, mut msg_rx: Rx<ServerCommand>) -> Result<()> {
         tokio::spawn(async move {
             loop {
                 let input = {
@@ -36,8 +36,19 @@ impl BasicApp {
         });
 
         tokio::spawn(async move {
-            while let Some(content) = msg_rx.recv().await {
-                println!("{}", content);
+            while let Some(command) = msg_rx.recv().await {
+                match command {
+                    ServerCommand::NewMessage(user, message) => {
+                        let msg = format!("[{}] {}", user, message);
+                        println!("{}", msg);
+                    }
+                    ServerCommand::ServerMessage(message) => {
+                        let msg = format!("<SERVER> {}", message);
+                        println!("{}", msg);
+                    }
+                    // TODO:
+                    ServerCommand::NewUserList(users) => {}
+                }
             }
         });
 
@@ -77,7 +88,11 @@ enum TuiAppEvent {
 }
 
 impl TuiApp {
-    pub fn start(input_tx: Tx<ClientInput>, mut msg_rx: Rx<String>, name: &str) -> Result<()> {
+    pub fn start(
+        input_tx: Tx<ClientInput>,
+        mut msg_rx: Rx<ServerCommand>,
+        name: &str,
+    ) -> Result<()> {
         let stdout = std::io::stdout().into_raw_mode()?;
         let stdout = AlternateScreen::from(stdout);
         let backend = TermionBackend::new(stdout);
@@ -92,9 +107,18 @@ impl TuiApp {
         let _msg_handler = {
             let event_tx = event_tx.clone();
             tokio::spawn(async move {
-                while let Some(content) = msg_rx.next().await {
-                    if event_tx.send(TuiAppEvent::Message(content)).is_err() {
-                        break;
+                while let Some(command) = msg_rx.next().await {
+                    match command {
+                        ServerCommand::NewMessage(user, message) => {
+                            let msg = format!("[{}] {}", user, message);
+                            event_tx.send(TuiAppEvent::Message(msg)).unwrap();
+                        }
+                        ServerCommand::ServerMessage(message) => {
+                            let msg = format!("<SERVER> {}", message);
+                            event_tx.send(TuiAppEvent::Message(msg)).unwrap();
+                        }
+                        // TODO:
+                        ServerCommand::NewUserList(users) => {}
                     }
                 }
             })

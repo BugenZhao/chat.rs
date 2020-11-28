@@ -47,7 +47,7 @@ impl Client {
         let (mut tcp_tx, mut tcp_rx) = Framed::new(stream, LinesCodec::new()) // split tcp stream data into framed line's
             .split::<String>(); // split the framed stream into two halves
 
-        let (msg_tx, msg_rx) = mpsc::unbounded_channel::<String>();
+        let (msg_tx, msg_rx) = mpsc::unbounded_channel::<ServerCommand>();
         let (input_tx, mut input_rx) = mpsc::unbounded_channel::<ClientInput>();
 
         // recv task, rx moved
@@ -57,15 +57,7 @@ impl Client {
                     Ok(raw_str) => {
                         if let Ok(command) = serde_json::from_str::<ServerCommand>(&raw_str) {
                             // deserialized into ServerCommand
-                            match command {
-                                ServerCommand::NewMessage(user, message) => {
-                                    msg_tx.send(format!("[{}] {}", user, message)).unwrap();
-                                    // println!("[{}] {}", user, message);
-                                }
-                                ServerCommand::ServerMessage(message) => {
-                                    msg_tx.send(format!("<SERVER> {}", message)).unwrap();
-                                }
-                            }
+                            let _ = msg_tx.send(command);
                         } else {
                             println!("error: unknown server command: {}", raw_str);
                         }
