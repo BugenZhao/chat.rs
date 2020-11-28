@@ -56,6 +56,7 @@ impl BasicApp {
                         let msg = format!("<SERVER> unknown: {}", message);
                         println!("{}", msg);
                     }
+                    ServerCommand::ServerName(_) => {}
                 }
             }
         });
@@ -71,8 +72,9 @@ pub struct TuiApp {
     input: String,
     last_input: String,
     messages: Vec<TuiStyledString>,
-    name: User,
+    username: User,
     users: Vec<TuiStyledString>,
+    server_name: String,
 }
 
 #[derive(Debug)]
@@ -80,6 +82,7 @@ enum TuiAppEvent {
     Key(termion::event::Key),
     Message(TuiStyledString),
     UserList(Vec<(User, SocketAddr)>),
+    ServerName(String),
 }
 
 impl TuiApp {
@@ -93,7 +96,8 @@ impl TuiApp {
         let backend = TermionBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         let mut app = Self {
-            name: name.to_owned(),
+            username: name.to_owned(),
+            server_name: "Chat".to_string(),
             ..Self::default()
         };
 
@@ -138,6 +142,10 @@ impl TuiApp {
                                 )))
                                 .unwrap();
                         }
+
+                        ServerCommand::ServerName(name) => {
+                            event_tx.send(TuiAppEvent::ServerName(name)).unwrap();
+                        }
                     }
                 }
             })
@@ -163,8 +171,8 @@ impl TuiApp {
                             .direction(Direction::Vertical)
                             .constraints([
                                 Constraint::Min(2),
-                                Constraint::Percentage(75),
-                                Constraint::Percentage(25),
+                                Constraint::Percentage(70),
+                                Constraint::Percentage(20),
                             ])
                             .split(f.size());
 
@@ -175,12 +183,12 @@ impl TuiApp {
 
                         let help_widget = Paragraph::new(Text::from(Spans::from(vec![
                             Span::styled(
-                                " Chat ",
+                                app.server_name.clone(),
                                 Style::default()
                                     .add_modifier(Modifier::ITALIC)
                                     .add_modifier(Modifier::BOLD),
                             ),
-                            Span::raw("-- Press "),
+                            Span::raw(" -- Press "),
                             Span::styled("ESC", Style::default().add_modifier(Modifier::BOLD)),
                             Span::raw(" or send "),
                             Span::styled(":exit", Style::default().add_modifier(Modifier::BOLD)),
@@ -218,7 +226,7 @@ impl TuiApp {
                             .block(
                                 Block::default()
                                     .borders(Borders::ALL)
-                                    .title(app.name.clone()),
+                                    .title(app.username.clone()),
                             );
                         f.render_widget(input_widget, chunks[2]);
 
@@ -285,7 +293,10 @@ impl TuiApp {
                             .map(|s| (s, Style::default()))
                             .collect();
                     }
-                    _ => {}
+                    Ok(TuiAppEvent::ServerName(name)) => {
+                        app.server_name = name;
+                    }
+                    Err(_) => {}
                 }
             }
             drop(terminal);

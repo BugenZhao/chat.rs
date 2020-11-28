@@ -76,19 +76,14 @@ impl Stream for RecvPeer {
 }
 
 /// The state of a server, will be shared among all peers through `Arc<Mutex<_>>`
+#[derive(Default)]
 struct ServerState {
+    name: String,
     history: Vec<(User, Message)>,
     peers: HashMap<SocketAddr, SendPeer>, // send halves of all peers
 }
 
 impl ServerState {
-    fn new() -> Self {
-        Self {
-            history: Vec::new(),
-            peers: HashMap::new(),
-        }
-    }
-
     /// Broadcast an operation to all peers through their send halves in the state
     fn broadcast(&mut self, op: Operation, excludes: Vec<SocketAddr>) {
         for (_peer_addr, peer) in self.peers.iter_mut() {
@@ -119,10 +114,13 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn new(port: u16) -> Result<Self> {
+    pub async fn new(port: u16, name: String) -> Result<Self> {
         Ok(Self {
             listener: TcpListener::bind(("0.0.0.0", port)).await?,
-            state: Arc::new(Mutex::new(ServerState::new())),
+            state: Arc::new(Mutex::new(ServerState {
+                name,
+                ..ServerState::default()
+            })),
         })
     }
 
@@ -179,11 +177,13 @@ impl Server {
                                         send_peer.username = new_name.clone();
                                     }
                                     if name.is_empty() {
-                                        let op =
+                                        state.broadcast(
                                             Operation::FromServer(ServerCommand::ServerMessage(
                                                 Message::Text(format!("Welcome, {}!", new_name)),
-                                            ));
-                                        state.broadcast(op, vec![]);
+                                            )),
+                                            vec![],
+                                        );
+                                        send!(&ServerCommand::ServerName(state.name.clone()));
                                     }
                                     state.broadcast_user_list();
                                 }

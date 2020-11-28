@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use crate::message::*;
 
 use serde::{Deserialize, Serialize};
@@ -16,7 +14,8 @@ pub enum ClientCommand {
 pub enum ServerCommand {
     UserMessage(User, Message),
     ServerMessage(Message),
-    UserList(Vec<(User, SocketAddr)>),
+    UserList(Vec<(User, std::net::SocketAddr)>),
+    ServerName(String),
     Error(String),
 }
 

@@ -32,6 +32,8 @@ pub enum Opt {
     Server {
         #[structopt(short, long, default_value = "30388")]
         port: u16,
+        #[structopt(short, long, default_value = "")]
+        name: String,
     },
 }
 
@@ -56,8 +58,13 @@ async fn main() -> Result<()> {
             let client = client::Client::new(&name, &server, port, !raw);
             client.run().await?;
         }
-        Opt::Server { port } => {
-            let server = server::Server::new(port).await?;
+        Opt::Server { port, name } => {
+            let name = if name.is_empty() {
+                names::Generator::default().next().unwrap()
+            } else {
+                name
+            };
+            let server = server::Server::new(port, name).await?;
             server.run().await?;
         }
     }
