@@ -31,6 +31,7 @@
 <span id="28">28</span>
 <span id="29">29</span>
 <span id="30">30</span>
+<span id="31">31</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">message</span>::<span class="kw-2">*</span>;
 
@@ -47,7 +48,8 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ServerCommand</span> {
     <span class="ident">NewMessage</span>(<span class="ident">User</span>, <span class="ident">Message</span>),
-    <span class="ident">ServerMessage</span>(<span class="ident">Message</span>)
+    <span class="ident">ServerMessage</span>(<span class="ident">Message</span>),
+    <span class="ident">NewUserList</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">User</span><span class="op">&gt;</span>),
 }
 
 <span class="doccomment">/// Peer (inside the server) needs to receive messages from...</span>
@@ -57,10 +59,10 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// Use this enum to identify among them.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ServerOperation</span> {
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Operation</span> {
     <span class="ident">FromClient</span>(<span class="ident">ClientCommand</span>),
     <span class="ident">FromPeer</span>(<span class="ident">User</span>, <span class="ident">Message</span>),
-    <span class="ident">FromServer</span>(<span class="ident">Message</span>),
+    <span class="ident">FromServer</span>(<span class="ident">ServerCommand</span>),
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "chat";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Peer","Peer representing a registered user"],["Server","The chat server"],["ServerState","The state of a server, will be shared among all peers through `Arc<Mutex<_>>`"]],"type":[["Rx",""],["SharedState",""],["Transport",""],["Tx",""]]});
+initSidebarItems({"struct":[["RecvPeer","Representing a registered user"],["SendPeer",""],["Server","The chat server"],["ServerState","The state of a server, will be shared among all peers through `Arc<Mutex<_>>`"]],"type":[["Rx",""],["SharedState",""],["Transport",""],["Tx",""]]});

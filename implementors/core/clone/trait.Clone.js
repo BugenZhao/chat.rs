@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["chat"] = [{"text":"impl Clone for Message","synthetic":false,"types":[]},{"text":"impl Clone for ClientCommand","synthetic":false,"types":[]},{"text":"impl Clone for ServerCommand","synthetic":false,"types":[]},{"text":"impl Clone for ServerOperation","synthetic":false,"types":[]}];
+implementors["chat"] = [{"text":"impl Clone for Message","synthetic":false,"types":[]},{"text":"impl Clone for ClientCommand","synthetic":false,"types":[]},{"text":"impl Clone for ServerCommand","synthetic":false,"types":[]},{"text":"impl Clone for Operation","synthetic":false,"types":[]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
