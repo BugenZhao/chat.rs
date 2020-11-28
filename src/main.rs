@@ -3,8 +3,7 @@
 #[macro_use]
 extern crate serde;
 
-mod tui_app;
-mod basic_app;
+mod app;
 mod client;
 mod error;
 mod message;
