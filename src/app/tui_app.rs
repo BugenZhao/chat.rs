@@ -137,7 +137,7 @@ impl super::App for TuiApp {
                             .margin(1)
                             .direction(Direction::Vertical)
                             .constraints([
-                                Constraint::Min(2),
+                                Constraint::Max(2),
                                 Constraint::Percentage(70),
                                 Constraint::Percentage(20),
                             ])
@@ -219,7 +219,8 @@ impl super::App for TuiApp {
                     // keyboard
                     Ok(AppEvent::Key(key)) => match key {
                         // return key
-                        Key::Char('\n') if !app.input.is_empty() => {
+                        Key::Char('\n') if app.input.is_empty() => {}
+                        Key::Char('\n') => {
                             let text: String = app.input.drain(..).collect();
                             app.last_input = text.clone();
 
@@ -247,7 +248,7 @@ impl super::App for TuiApp {
                             }
                         }
                         // push new char
-                        Key::Char(char) if app.input.len() < 140 && !char.is_whitespace() => {
+                        Key::Char(char) if app.input.len() < 140 => {
                             app.input.push(char);
                         }
                         // pop the last char
