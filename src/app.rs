@@ -47,7 +47,10 @@ impl BasicApp {
                         println!("{}", msg);
                     }
                     // TODO:
-                    ServerCommand::NewUserList(users) => {}
+                    ServerCommand::NewUserList(users) => {
+                        let msg = format!("<SERVER> Online users: {:?}", users);
+                        println!("{}", msg);
+                    }
                 }
             }
         });
@@ -74,10 +77,13 @@ impl AsyncKeys {
     }
 }
 
+type StyledTuiMessage = (String, Style);
+
 #[derive(Default)]
 pub struct TuiApp {
     input: String,
-    messages: Vec<String>,
+    last_input: String,
+    messages: Vec<StyledTuiMessage>,
     name: User,
     users: Vec<User>,
 }
@@ -85,7 +91,7 @@ pub struct TuiApp {
 #[derive(Debug)]
 enum TuiAppEvent {
     Key(termion::event::Key),
-    Message(String),
+    Message(StyledTuiMessage),
     UserList(Vec<User>),
 }
 
@@ -112,14 +118,25 @@ impl TuiApp {
                 while let Some(command) = msg_rx.next().await {
                     match command {
                         ServerCommand::NewMessage(user, message) => {
-                            let msg = format!("[{}] {}", user, message);
-                            event_tx.send(TuiAppEvent::Message(msg)).unwrap();
+                            let msg = format!(
+                                "[{}, {}] {}",
+                                user,
+                                chrono::Local::now().format("%H:%M:%S"),
+                                message
+                            );
+                            event_tx
+                                .send(TuiAppEvent::Message((msg, Style::default())))
+                                .unwrap();
                         }
                         ServerCommand::ServerMessage(message) => {
-                            let msg = format!("<SERVER> {}", message);
-                            event_tx.send(TuiAppEvent::Message(msg)).unwrap();
+                            let msg = format!("=> {}", message);
+                            event_tx
+                                .send(TuiAppEvent::Message((
+                                    msg,
+                                    Style::default().add_modifier(Modifier::BOLD),
+                                )))
+                                .unwrap();
                         }
-                        // TODO:
                         ServerCommand::NewUserList(users) => {
                             event_tx.send(TuiAppEvent::UserList(users)).unwrap();
                         }
@@ -148,20 +165,24 @@ impl TuiApp {
                             .direction(Direction::Vertical)
                             .constraints([
                                 Constraint::Min(2),
-                                Constraint::Percentage(50),
-                                Constraint::Percentage(20),
-                                Constraint::Percentage(30),
+                                Constraint::Percentage(75),
+                                Constraint::Percentage(25),
                             ])
                             .split(f.size());
 
+                        let schunks = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+                            .split(chunks[1]);
+
                         let help_widget = Paragraph::new(Text::from(Spans::from(vec![
                             Span::styled(
-                                " Chat -- ",
+                                " Chat ",
                                 Style::default()
                                     .add_modifier(Modifier::ITALIC)
                                     .add_modifier(Modifier::BOLD),
                             ),
-                            Span::raw("Press "),
+                            Span::raw("-- Press "),
                             Span::styled("ESC", Style::default().add_modifier(Modifier::BOLD)),
                             Span::raw(" or send "),
                             Span::styled(":exit", Style::default().add_modifier(Modifier::BOLD)),
@@ -175,11 +196,25 @@ impl TuiApp {
                             .rev()
                             .take((chunks[1].height - 2) as usize)
                             .rev()
-                            .map(|m| ListItem::new(Span::raw(m)))
+                            .map(|(content, style)| {
+                                ListItem::new(Span::styled(content, style.clone()))
+                            })
                             .collect();
                         let message_widget = List::new(messages)
                             .block(Block::default().borders(Borders::ALL).title("Messages"));
-                        f.render_widget(message_widget, chunks[1]);
+                        f.render_widget(message_widget, schunks[0]);
+
+                        let users: Vec<_> = app
+                            .users
+                            .iter()
+                            .map(|u| ListItem::new(Span::raw(u)))
+                            .collect();
+                        let users_widget = List::new(users).block(
+                            Block::default()
+                                .borders(Borders::ALL)
+                                .title(format!("{} Users", app.users.len())),
+                        );
+                        f.render_widget(users_widget, schunks[1]);
 
                         let input_widget = Paragraph::new(app.input.as_ref())
                             .style(Style::default().fg(Color::Yellow))
@@ -196,14 +231,6 @@ impl TuiApp {
                         let y =
                             chunks[2].y + (app.input.width() as u16 / (chunks[2].width - 2)) + 1;
                         f.set_cursor(x, y);
-
-                        let users: Vec<_> = app
-                            .users
-                            .iter()
-                            .map(|u| ListItem::new(Span::raw(u)))
-                            .collect();
-                        let users_widget = List::new(users);
-                        f.render_widget(users_widget, chunks[3]);
                     })
                     .unwrap();
 
@@ -213,26 +240,42 @@ impl TuiApp {
 
                 match event_rx.recv() {
                     Ok(TuiAppEvent::Key(key)) => match key {
-                        Key::Char('\n') => {
+                        Key::Char('\n') if !app.input.is_empty() => {
                             let text: String = app.input.drain(..).collect();
-                            if text == ":exit" {
-                                input_tx.send(ClientInput::Exit).unwrap();
-                                exited = true;
-                            } else if !text.is_empty() {
+                            app.last_input = text.clone();
+                            if text.starts_with(":") {
+                                match text[1..].to_lowercase().as_str() {
+                                    "exit" => {
+                                        input_tx.send(ClientInput::Exit).unwrap();
+                                        exited = true;
+                                    }
+                                    "clear" => app.messages.clear(),
+
+                                    "fuck" => app.messages.push((
+                                        "=> What's your problem?".to_string(),
+                                        Style::default().fg(Color::Red),
+                                    )),
+                                    cmd @ _ => app.messages.push((
+                                        format!("=> Invalid command `{}`", cmd),
+                                        Style::default().fg(Color::Red),
+                                    )),
+                                }
+                            } else {
                                 input_tx.send(ClientInput::Text(text)).unwrap();
                             }
                         }
-                        Key::Char(char) => {
-                            if app.input.len() < 140 {
-                                app.input.push(char);
-                            }
+                        Key::Char(char) if app.input.len() < 140 && !char.is_whitespace() => {
+                            app.input.push(char);
                         }
                         Key::Backspace => {
                             app.input.pop();
                         }
                         Key::Esc => {
-                            input_tx.send(ClientInput::Exit).unwrap();
-                            exited = true;
+                            // input_tx.send(ClientInput::Exit).unwrap();
+                            // exited = true;
+                        }
+                        Key::Up if app.input.is_empty() => {
+                            app.input = app.last_input.clone();
                         }
                         _ => {}
                     },
