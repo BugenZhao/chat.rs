@@ -297,6 +297,17 @@
 <span id="294">294</span>
 <span id="295">295</span>
 <span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">net</span>::<span class="ident">SocketAddr</span>;
 
@@ -356,6 +367,7 @@
                         <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;&lt;SERVER&gt; unknown: {}&quot;</span>, <span class="ident">message</span>);
                         <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">msg</span>);
                     }
+                    <span class="ident">ServerCommand</span>::<span class="ident">ServerName</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
                 }
             }
         });
@@ -371,8 +383,9 @@
     <span class="ident">input</span>: <span class="ident">String</span>,
     <span class="ident">last_input</span>: <span class="ident">String</span>,
     <span class="ident">messages</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TuiStyledString</span><span class="op">&gt;</span>,
-    <span class="ident">name</span>: <span class="ident">User</span>,
+    <span class="ident">username</span>: <span class="ident">User</span>,
     <span class="ident">users</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TuiStyledString</span><span class="op">&gt;</span>,
+    <span class="ident">server_name</span>: <span class="ident">String</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -380,6 +393,7 @@
     <span class="ident">Key</span>(<span class="ident">termion</span>::<span class="ident">event</span>::<span class="ident">Key</span>),
     <span class="ident">Message</span>(<span class="ident">TuiStyledString</span>),
     <span class="ident">UserList</span>(<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">User</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span>),
+    <span class="ident">ServerName</span>(<span class="ident">String</span>),
 }
 
 <span class="kw">impl</span> <span class="ident">TuiApp</span> {
@@ -393,7 +407,8 @@
         <span class="kw">let</span> <span class="ident">backend</span> <span class="op">=</span> <span class="ident">TermionBackend</span>::<span class="ident">new</span>(<span class="ident">stdout</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">terminal</span> <span class="op">=</span> <span class="ident">Terminal</span>::<span class="ident">new</span>(<span class="ident">backend</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">app</span> <span class="op">=</span> <span class="self">Self</span> {
-            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_owned</span>(),
+            <span class="ident">username</span>: <span class="ident">name</span>.<span class="ident">to_owned</span>(),
+            <span class="ident">server_name</span>: <span class="string">&quot;Chat&quot;</span>.<span class="ident">to_string</span>(),
             ..<span class="self">Self</span>::<span class="ident">default</span>()
         };
 
@@ -438,6 +453,10 @@
                                 )))
                                 .<span class="ident">unwrap</span>();
                         }
+
+                        <span class="ident">ServerCommand</span>::<span class="ident">ServerName</span>(<span class="ident">name</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">event_tx</span>.<span class="ident">send</span>(<span class="ident">TuiAppEvent</span>::<span class="ident">ServerName</span>(<span class="ident">name</span>)).<span class="ident">unwrap</span>();
+                        }
                     }
                 }
             })
@@ -463,8 +482,8 @@
                             .<span class="ident">direction</span>(<span class="ident">Direction</span>::<span class="ident">Vertical</span>)
                             .<span class="ident">constraints</span>([
                                 <span class="ident">Constraint</span>::<span class="ident">Min</span>(<span class="number">2</span>),
-                                <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">75</span>),
-                                <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">25</span>),
+                                <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">70</span>),
+                                <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">20</span>),
                             ])
                             .<span class="ident">split</span>(<span class="ident">f</span>.<span class="ident">size</span>());
 
@@ -475,12 +494,12 @@
 
                         <span class="kw">let</span> <span class="ident">help_widget</span> <span class="op">=</span> <span class="ident">Paragraph</span>::<span class="ident">new</span>(<span class="ident">Text</span>::<span class="ident">from</span>(<span class="ident">Spans</span>::<span class="ident">from</span>(<span class="macro">vec</span><span class="macro">!</span>[
                             <span class="ident">Span</span>::<span class="ident">styled</span>(
-                                <span class="string">&quot; Chat &quot;</span>,
+                                <span class="ident">app</span>.<span class="ident">server_name</span>.<span class="ident">clone</span>(),
                                 <span class="ident">Style</span>::<span class="ident">default</span>()
                                     .<span class="ident">add_modifier</span>(<span class="ident">Modifier</span>::<span class="ident">ITALIC</span>)
                                     .<span class="ident">add_modifier</span>(<span class="ident">Modifier</span>::<span class="ident">BOLD</span>),
                             ),
-                            <span class="ident">Span</span>::<span class="ident">raw</span>(<span class="string">&quot;-- Press &quot;</span>),
+                            <span class="ident">Span</span>::<span class="ident">raw</span>(<span class="string">&quot; -- Press &quot;</span>),
                             <span class="ident">Span</span>::<span class="ident">styled</span>(<span class="string">&quot;ESC&quot;</span>, <span class="ident">Style</span>::<span class="ident">default</span>().<span class="ident">add_modifier</span>(<span class="ident">Modifier</span>::<span class="ident">BOLD</span>)),
                             <span class="ident">Span</span>::<span class="ident">raw</span>(<span class="string">&quot; or send &quot;</span>),
                             <span class="ident">Span</span>::<span class="ident">styled</span>(<span class="string">&quot;:exit&quot;</span>, <span class="ident">Style</span>::<span class="ident">default</span>().<span class="ident">add_modifier</span>(<span class="ident">Modifier</span>::<span class="ident">BOLD</span>)),
@@ -518,7 +537,7 @@
                             .<span class="ident">block</span>(
                                 <span class="ident">Block</span>::<span class="ident">default</span>()
                                     .<span class="ident">borders</span>(<span class="ident">Borders</span>::<span class="ident">ALL</span>)
-                                    .<span class="ident">title</span>(<span class="ident">app</span>.<span class="ident">name</span>.<span class="ident">clone</span>()),
+                                    .<span class="ident">title</span>(<span class="ident">app</span>.<span class="ident">username</span>.<span class="ident">clone</span>()),
                             );
                         <span class="ident">f</span>.<span class="ident">render_widget</span>(<span class="ident">input_widget</span>, <span class="ident">chunks</span>[<span class="number">2</span>]);
 
@@ -585,7 +604,10 @@
                             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> (<span class="ident">s</span>, <span class="ident">Style</span>::<span class="ident">default</span>()))
                             .<span class="ident">collect</span>();
                     }
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
+                    <span class="prelude-val">Ok</span>(<span class="ident">TuiAppEvent</span>::<span class="ident">ServerName</span>(<span class="ident">name</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">app</span>.<span class="ident">server_name</span> <span class="op">=</span> <span class="ident">name</span>;
+                    }
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
                 }
             }
             <span class="ident">drop</span>(<span class="ident">terminal</span>);
