@@ -7,8 +7,10 @@ type Rx<T> = mpsc::UnboundedReceiver<T>;
 
 pub struct BasicApp {}
 
-impl BasicApp {
-    pub fn start(input_tx: Tx<ClientInput>, mut msg_rx: Rx<ServerCommand>) -> Result<()> {
+impl super::App for BasicApp {
+    fn start(input_tx: Tx<ClientInput>, mut msg_rx: Rx<ServerCommand>, name: &str) -> Result<()> {
+        println!("Joined as `{}`.", name);
+
         tokio::spawn(async move {
             loop {
                 let input = {
@@ -36,10 +38,12 @@ impl BasicApp {
                         println!("{}", msg);
                     }
                     ServerCommand::Error(message) => {
-                        let msg = format!("<SERVER> unknown: {}", message);
+                        let msg = format!("<SERVER> Unknown: {}", message);
                         println!("{}", msg);
                     }
-                    ServerCommand::ServerName(_) => {}
+                    ServerCommand::ServerName(name) => {
+                        println!("<SERVER> Server's name is `{}`", name);
+                    }
                 }
             }
         });

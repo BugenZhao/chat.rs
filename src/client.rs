@@ -8,7 +8,7 @@ use futures::{
 use tokio::{net::TcpStream, sync::mpsc};
 use tokio_util::codec::{Framed, LinesCodec};
 
-use crate::app::{BasicApp, TuiApp};
+use crate::app::{App, BasicApp, TuiApp};
 use crate::message::*;
 use crate::protocol::*;
 
@@ -74,7 +74,7 @@ impl Client {
         if self.tui {
             TuiApp::start(input_tx, msg_rx, &self.name)?;
         } else {
-            BasicApp::start(input_tx, msg_rx)?;
+            BasicApp::start(input_tx, msg_rx, &self.name)?;
         }
 
         // send task

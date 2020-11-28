@@ -38,8 +38,8 @@ enum TuiAppEvent {
     ServerName(String),
 }
 
-impl TuiApp {
-    pub fn start(
+impl super::App for TuiApp {
+    fn start(
         input_tx: Tx<ClientInput>,
         mut msg_rx: Rx<ServerCommand>,
         name: &str,
