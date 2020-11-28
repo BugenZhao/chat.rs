@@ -24,6 +24,7 @@ pub struct Client {
     tui: bool,
 }
 
+/// Types of input from the app
 #[derive(Debug)]
 pub enum ClientInput {
     Text(String),
@@ -49,11 +50,19 @@ impl Client {
         let (mut tcp_tx, mut tcp_rx) = Framed::new(stream, LinesCodec::new()) // split tcp stream data into framed line's
             .split::<String>(); // split the framed stream into two halves
 
+        // the following channels are used to communicate between the client and the app
         let (msg_tx, msg_rx) = mpsc::unbounded_channel::<ServerCommand>();
         let (input_tx, mut input_rx) = mpsc::unbounded_channel::<ClientInput>();
 
-        // recv task, rx moved
-        tokio::spawn(async move {
+        // launch the app task
+        if self.tui {
+            TuiApp::start(input_tx, msg_rx, &self.name)?;
+        } else {
+            BasicApp::start(input_tx, msg_rx, &self.name)?;
+        }
+
+        // recv task: read from `tcp_rx`, send to `msg_tx`
+        let _recv_task = tokio::spawn(async move {
             while let Some(result) = tcp_rx.next().await {
                 match result {
                     Ok(raw_str) => {
@@ -71,31 +80,29 @@ impl Client {
             }
         });
 
-        if self.tui {
-            TuiApp::start(input_tx, msg_rx, &self.name)?;
-        } else {
-            BasicApp::start(input_tx, msg_rx, &self.name)?;
-        }
+        // send task: read from `input_rx`, send to `tcp_tx`
+        let _send_task = {
+            macro_rules! send {
+                ($msg:expr) => {
+                    let _ = tcp_tx.send(serde_json::to_string(&$msg).unwrap()).await;
+                };
+            }
 
-        // send task
-        macro_rules! send {
-            ($msg:expr) => {
-                tcp_tx.send(serde_json::to_string(&$msg).unwrap()).await?;
-            };
-        }
+            // set name first to register
+            send!(ClientCommand::SetName(self.name.clone()));
 
-        send!(ClientCommand::SetName(self.name.clone()));
-        while let Some(input) = input_rx.next().await {
-            match input {
-                ClientInput::Text(text) => {
-                    // read messages from input_rx and send them
-                    send!(ClientCommand::SendMessage(Message::Text(text)));
-                }
-                ClientInput::Exit => {
-                    break;
+            while let Some(input) = input_rx.next().await {
+                match input {
+                    ClientInput::Text(text) => {
+                        // read messages from input_rx(app) and send them
+                        send!(ClientCommand::SendMessage(Message::Text(text)));
+                    }
+                    ClientInput::Exit => {
+                        break;
+                    }
                 }
             }
-        }
+        };
 
         Ok(())
     }

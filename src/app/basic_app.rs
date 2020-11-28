@@ -5,24 +5,27 @@ use crate::{client::ClientInput, error::*, protocol::ServerCommand};
 type Tx<T> = mpsc::UnboundedSender<T>;
 type Rx<T> = mpsc::UnboundedReceiver<T>;
 
+/// A basic app which does not split input and output
 pub struct BasicApp {}
 
 impl super::App for BasicApp {
     fn start(input_tx: Tx<ClientInput>, mut msg_rx: Rx<ServerCommand>, name: &str) -> Result<()> {
         println!("Joined as `{}`.", name);
 
-        tokio::spawn(async move {
+        let _in_task = tokio::spawn(async move {
             loop {
                 let input = {
                     let mut buf = String::new();
                     std::io::stdin().read_line(&mut buf).unwrap();
                     buf
                 };
+                // send msg to client
                 input_tx.send(ClientInput::Text(input)).unwrap();
             }
         });
 
-        tokio::spawn(async move {
+        let _out_task = tokio::spawn(async move {
+            // recv command from client
             while let Some(command) = msg_rx.recv().await {
                 match command {
                     ServerCommand::UserMessage(user, message) => {
