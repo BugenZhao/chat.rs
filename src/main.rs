@@ -27,7 +27,7 @@ pub enum Opt {
         #[structopt(short, long)]
         name: String,
         #[structopt(short, long)]
-        tui: bool,
+        basic: bool,
     },
     Server {
         #[structopt(short, long, default_value = "30388")]
@@ -46,9 +46,9 @@ async fn main() -> Result<()> {
             server,
             port,
             name,
-            tui,
+            basic: raw,
         } => {
-            let client = client::Client::new(&name, &server, port, tui);
+            let client = client::Client::new(&name, &server, port, !raw);
             client.run().await?;
         }
         Opt::Server { port } => {

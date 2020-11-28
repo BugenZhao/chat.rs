@@ -120,8 +120,8 @@ impl TuiApp {
                             .direction(Direction::Vertical)
                             .constraints([
                                 Constraint::Min(2),
-                                Constraint::Percentage(20),
                                 Constraint::Percentage(80),
+                                Constraint::Percentage(20),
                             ])
                             .split(f.size());
 
@@ -140,6 +140,18 @@ impl TuiApp {
                         ])));
                         f.render_widget(help_widget, chunks[0]);
 
+                        let messages: Vec<_> = app
+                            .messages
+                            .iter()
+                            .rev()
+                            .take((chunks[1].height - 2) as usize)
+                            .rev()
+                            .map(|m| ListItem::new(Span::raw(m)))
+                            .collect();
+                        let message_widget = List::new(messages)
+                            .block(Block::default().borders(Borders::ALL).title("Messages"));
+                        f.render_widget(message_widget, chunks[1]);
+
                         let input_widget = Paragraph::new(app.input.as_ref())
                             .style(Style::default().fg(Color::Yellow))
                             .wrap(Wrap { trim: true })
@@ -148,21 +160,12 @@ impl TuiApp {
                                     .borders(Borders::ALL)
                                     .title(app.name.clone()),
                             );
-                        f.render_widget(input_widget, chunks[1]);
-
-                        let messages: Vec<_> = app
-                            .messages
-                            .iter()
-                            .map(|m| ListItem::new(Span::raw(m)))
-                            .collect();
-                        let message_widget = List::new(messages)
-                            .block(Block::default().borders(Borders::ALL).title("Messages"));
-                        f.render_widget(message_widget, chunks[2]);
+                        f.render_widget(input_widget, chunks[2]);
 
                         let x =
-                            chunks[1].x + (app.input.width() as u16 % (chunks[1].width - 2)) + 1;
+                            chunks[2].x + (app.input.width() as u16 % (chunks[2].width - 2)) + 1;
                         let y =
-                            chunks[1].y + (app.input.width() as u16 / (chunks[1].width - 2)) + 1;
+                            chunks[2].y + (app.input.width() as u16 / (chunks[2].width - 2)) + 1;
                         f.set_cursor(x, y);
                     })
                     .unwrap();
@@ -174,11 +177,11 @@ impl TuiApp {
                 match event_rx.recv() {
                     Ok(TuiAppEvent::Key(key)) => match key {
                         Key::Char('\n') => {
-                            let text = app.input.drain(..).collect();
+                            let text: String = app.input.drain(..).collect();
                             if text == ":exit" {
                                 input_tx.send(ClientInput::Exit).unwrap();
                                 exited = true;
-                            } else {
+                            } else if !text.is_empty() {
                                 input_tx.send(ClientInput::Text(text)).unwrap();
                             }
                         }
