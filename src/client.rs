@@ -61,7 +61,7 @@ impl Client {
                             // deserialized into ServerCommand
                             let _ = msg_tx.send(command);
                         } else {
-                            println!("error: unknown server command: {}", raw_str);
+                            let _ = msg_tx.send(ServerCommand::Error(raw_str));
                         }
                     }
                     Err(_) => {

@@ -12,8 +12,6 @@ use tokio::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec};
 
-use log::*;
-
 use crate::message::*;
 use crate::protocol::*;
 
@@ -108,7 +106,7 @@ impl ServerState {
             .filter(|(n, _a)| !n.is_empty())
             .collect();
         self.broadcast(
-            Operation::FromServer(ServerCommand::NewUserList(users)),
+            Operation::FromServer(ServerCommand::UserList(users)),
             vec![],
         );
     }
@@ -130,6 +128,8 @@ impl Server {
 
     /// An infinite loop that accepts connections and then spawn tasks to process
     pub async fn run(&self) -> Result<()> {
+        log::info!("listen on {:?}", self.listener.local_addr()?);
+
         loop {
             let (stream, addr) = self.listener.accept().await?;
             let arc_state = self.state.clone();
@@ -145,9 +145,9 @@ impl Server {
         let mut peer = RecvPeer::register(state.clone(), addr, transport).await?; // register the new peer in shared state
         let mut name = "".to_string();
 
-        macro_rules! server_log{
-            ($($x:expr),+) => {
-                info!("[{}({})] {}", addr, name, format!($($x),+));
+        macro_rules! log{
+            ($level:ident, $($x:expr),+) => {
+                log::$level!("[{}({})] {}", addr, name, format!($($x),+));
             }
         }
         macro_rules! send {
@@ -158,7 +158,7 @@ impl Server {
             };
         }
 
-        server_log!("joined");
+        log!(info, "joined");
 
         // poll all kinds of server ops
         while let Some(result) = peer.next().await {
@@ -171,7 +171,7 @@ impl Server {
                                 if new_name.is_empty() {
                                     continue;
                                 }
-                                server_log!("change name to: {}", new_name);
+                                log!(info, "change name to: {}", new_name);
 
                                 {
                                     let mut state = state.lock().await;
@@ -184,8 +184,8 @@ impl Server {
                                                 Message::Text(format!("Welcome, {}!", new_name)),
                                             ));
                                         state.broadcast(op, vec![]);
-                                        state.broadcast_user_list();
                                     }
+                                    state.broadcast_user_list();
                                 }
 
                                 name = new_name;
@@ -202,12 +202,12 @@ impl Server {
                                     Operation::FromPeer(name.clone(), message.clone()),
                                     vec![],
                                 );
-                                server_log!("{:?}", message);
+                                log!(info, "{:?}", message);
                             }
                         },
                         Operation::FromPeer(user, message) => {
                             // a broadcast from other peers
-                            send!(&ServerCommand::NewMessage(user, message));
+                            send!(&ServerCommand::UserMessage(user, message));
                         }
                         Operation::FromServer(message) => {
                             // a message from server itself, straightly forward to the client
@@ -216,10 +216,8 @@ impl Server {
                     }
                 }
                 Err(e) => {
-                    server_log!("error: {}", e);
-                    send!(&ServerCommand::ServerMessage(Message::Text(
-                        "What's that?".to_owned(),
-                    )));
+                    log!(warn, "error: {}", e);
+                    send!(&ServerCommand::Error("What's that?".to_owned(),));
                 }
             }
         }
@@ -228,11 +226,11 @@ impl Server {
         {
             let mut state = state.lock().await;
             state.peers.remove(&addr);
-            let leave_msg = Message::Text(format!("{} left", name));
+            let leave_msg = Message::Text(format!("{} left.", name));
             let op = Operation::FromServer(ServerCommand::ServerMessage(leave_msg));
             state.broadcast(op, vec![]);
             state.broadcast_user_list();
-            server_log!("left");
+            log!(info, "left");
         }
 
         Ok(())

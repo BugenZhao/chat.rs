@@ -14,9 +14,10 @@ pub enum ClientCommand {
 /// Command from server to client
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ServerCommand {
-    NewMessage(User, Message),
+    UserMessage(User, Message),
     ServerMessage(Message),
-    NewUserList(Vec<(User, SocketAddr)>),
+    UserList(Vec<(User, SocketAddr)>),
+    Error(String),
 }
 
 /// Peer (inside the server) needs to receive messages from...

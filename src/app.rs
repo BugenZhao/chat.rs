@@ -40,7 +40,7 @@ impl BasicApp {
         tokio::spawn(async move {
             while let Some(command) = msg_rx.recv().await {
                 match command {
-                    ServerCommand::NewMessage(user, message) => {
+                    ServerCommand::UserMessage(user, message) => {
                         let msg = format!("[{}] {}", user, message);
                         println!("{}", msg);
                     }
@@ -48,8 +48,12 @@ impl BasicApp {
                         let msg = format!("<SERVER> {}", message);
                         println!("{}", msg);
                     }
-                    ServerCommand::NewUserList(users) => {
+                    ServerCommand::UserList(users) => {
                         let msg = format!("<SERVER> Online users: {:?}", users);
+                        println!("{}", msg);
+                    }
+                    ServerCommand::Error(message) => {
+                        let msg = format!("<SERVER> unknown: {}", message);
                         println!("{}", msg);
                     }
                 }
@@ -57,24 +61,6 @@ impl BasicApp {
         });
 
         Ok(())
-    }
-}
-
-struct AsyncKeys {
-    keys: termion::input::Keys<std::io::Stdin>,
-}
-
-impl AsyncKeys {
-    fn new() -> Self {
-        Self {
-            keys: std::io::stdin().keys(),
-        }
-    }
-
-    async fn next(
-        &mut self,
-    ) -> std::option::Option<std::result::Result<termion::event::Key, std::io::Error>> {
-        return self.keys.next();
     }
 }
 
@@ -118,7 +104,7 @@ impl TuiApp {
             tokio::spawn(async move {
                 while let Some(command) = msg_rx.next().await {
                     match command {
-                        ServerCommand::NewMessage(user, message) => {
+                        ServerCommand::UserMessage(user, message) => {
                             let msg = format!(
                                 "[{}, {}] {}",
                                 user,
@@ -138,8 +124,19 @@ impl TuiApp {
                                 )))
                                 .unwrap();
                         }
-                        ServerCommand::NewUserList(users) => {
+                        ServerCommand::UserList(users) => {
                             event_tx.send(TuiAppEvent::UserList(users)).unwrap();
+                        }
+                        ServerCommand::Error(message) => {
+                            let msg = format!("=> Error: {}", message);
+                            event_tx
+                                .send(TuiAppEvent::Message((
+                                    msg,
+                                    Style::default()
+                                        .add_modifier(Modifier::BOLD)
+                                        .fg(Color::LightRed),
+                                )))
+                                .unwrap();
                         }
                     }
                 }
@@ -149,8 +146,8 @@ impl TuiApp {
         let _key_handler = {
             // let event_tx = event_tx.clone();
             tokio::spawn(async move {
-                let mut async_keys = AsyncKeys::new();
-                while let Some(Ok(key)) = async_keys.next().await {
+                let mut keys = std::io::stdin().keys();
+                while let Some(Ok(key)) = keys.next() {
                     let _ = event_tx.send(TuiAppEvent::Key(key));
                 }
             })
