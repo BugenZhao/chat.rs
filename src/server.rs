@@ -20,8 +20,8 @@ use crate::protocol::*;
 type SharedState = Arc<Mutex<ServerState>>;
 type Transport = Framed<TcpStream, LinesCodec>;
 
-type Tx = mpsc::UnboundedSender<ServerOperation>;
-type Rx = mpsc::UnboundedReceiver<ServerOperation>;
+type Tx = mpsc::UnboundedSender<Operation>;
+type Rx = mpsc::UnboundedReceiver<Operation>;
 
 /// Representing a registered user
 /// - transport: a framed tcp stream, used for communicating between server and client
@@ -53,7 +53,7 @@ impl RecvPeer {
 }
 
 impl Stream for RecvPeer {
-    type Item = Result<ServerOperation>;
+    type Item = Result<Operation>;
 
     /// Poll ServerOperation's from both transport and rx, so that we can use `next()` to receive all kinds of ops
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -67,7 +67,7 @@ impl Stream for RecvPeer {
         Poll::Ready(match result {
             Some(Ok(de_str)) => {
                 let command = serde_json::from_str::<ClientCommand>(&de_str)?;
-                Some(Ok(ServerOperation::FromClient(command)))
+                Some(Ok(Operation::FromClient(command)))
             }
             Some(Err(e)) => Some(Err(e.into())),
             _ => None,
@@ -90,7 +90,7 @@ impl ServerState {
     }
 
     /// Broadcast an operation to all peers through their send halves in the state
-    fn broadcast(&mut self, op: ServerOperation, excludes: Vec<SocketAddr>) {
+    fn broadcast(&mut self, op: Operation, excludes: Vec<SocketAddr>) {
         for (_peer_addr, peer) in self.peers.iter_mut() {
             if !excludes.contains(_peer_addr) {
                 let _ = peer.tx.send(op.clone());
@@ -106,14 +106,17 @@ impl ServerState {
             .collect()
     }
 
-    fn broadcast_onlines(&mut self) {
+    fn broadcast_user_list(&mut self) {
         let users = self.all_valid_users();
-        let op = ServerOperation::FromServer(if users.is_empty() {
-            Message::Text(format!("No other online users :("))
-        } else {
-            Message::Text(format!("{} online users: {:?}", users.len(), users))
-        });
-        self.broadcast(op, vec![]);
+        // let op = ServerOperation::FromServer(if users.is_empty() {
+        //     Message::Text(format!("No other online users :("))
+        // } else {
+        //     Message::Text(format!("{} online users: {:?}", users.len(), users))
+        // });
+        self.broadcast(
+            Operation::FromServer(ServerCommand::NewUserList(users)),
+            vec![],
+        );
     }
 }
 
@@ -168,7 +171,7 @@ impl Server {
             match result {
                 Ok(op) => {
                     match op {
-                        ServerOperation::FromClient(command) => match command {
+                        Operation::FromClient(command) => match command {
                             // a request from the client
                             ClientCommand::SetName(new_name) => {
                                 if new_name.is_empty() {
@@ -182,14 +185,12 @@ impl Server {
                                         send_peer.username = new_name.clone();
                                     }
                                     if name.is_empty() {
-                                        state.broadcast(
-                                            ServerOperation::FromServer(Message::Text(format!(
-                                                "Welcome, {}!",
-                                                new_name
-                                            ))),
-                                            vec![],
-                                        );
-                                        state.broadcast_onlines();
+                                        let op =
+                                            Operation::FromServer(ServerCommand::ServerMessage(
+                                                Message::Text(format!("Welcome, {}!", new_name)),
+                                            ));
+                                        state.broadcast(op, vec![]);
+                                        state.broadcast_user_list();
                                     }
                                 }
 
@@ -204,19 +205,19 @@ impl Server {
                                 state.history.push((name.clone(), message.clone()));
                                 // send FromPeer ops to broadcast the latest incoming message to all peers
                                 state.broadcast(
-                                    ServerOperation::FromPeer(name.clone(), message.clone()),
+                                    Operation::FromPeer(name.clone(), message.clone()),
                                     vec![],
                                 );
                                 server_log!("{:?}", message);
                             }
                         },
-                        ServerOperation::FromPeer(user, message) => {
+                        Operation::FromPeer(user, message) => {
                             // a broadcast from other peers
                             send!(&ServerCommand::NewMessage(user, message));
                         }
-                        ServerOperation::FromServer(message) => {
-                            // a message from server itself, forward to the client
-                            send!(&ServerCommand::ServerMessage(message));
+                        Operation::FromServer(message) => {
+                            // a message from server itself, straightly forward to the client
+                            send!(message);
                         }
                     }
                 }
@@ -234,8 +235,9 @@ impl Server {
             let mut state = state.lock().await;
             state.peers.remove(&addr);
             let leave_msg = Message::Text(format!("{} left", name));
-            state.broadcast(ServerOperation::FromServer(leave_msg), vec![]);
-            state.broadcast_onlines();
+            let op = Operation::FromServer(ServerCommand::ServerMessage(leave_msg));
+            state.broadcast(op, vec![]);
+            state.broadcast_user_list();
             server_log!("left");
         }
 

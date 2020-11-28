@@ -11,7 +11,7 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::{client::ClientInput, error::*, protocol::ServerCommand};
+use crate::{client::ClientInput, error::*, message::User, protocol::ServerCommand};
 
 type Tx<T> = mpsc::UnboundedSender<T>;
 type Rx<T> = mpsc::UnboundedReceiver<T>;
@@ -78,13 +78,15 @@ impl AsyncKeys {
 pub struct TuiApp {
     input: String,
     messages: Vec<String>,
-    name: String,
+    name: User,
+    users: Vec<User>,
 }
 
 #[derive(Debug)]
 enum TuiAppEvent {
     Key(termion::event::Key),
     Message(String),
+    UserList(Vec<User>),
 }
 
 impl TuiApp {
@@ -118,7 +120,9 @@ impl TuiApp {
                             event_tx.send(TuiAppEvent::Message(msg)).unwrap();
                         }
                         // TODO:
-                        ServerCommand::NewUserList(users) => {}
+                        ServerCommand::NewUserList(users) => {
+                            event_tx.send(TuiAppEvent::UserList(users)).unwrap();
+                        }
                     }
                 }
             })
@@ -144,8 +148,9 @@ impl TuiApp {
                             .direction(Direction::Vertical)
                             .constraints([
                                 Constraint::Min(2),
-                                Constraint::Percentage(80),
+                                Constraint::Percentage(50),
                                 Constraint::Percentage(20),
+                                Constraint::Percentage(30),
                             ])
                             .split(f.size());
 
@@ -191,6 +196,14 @@ impl TuiApp {
                         let y =
                             chunks[2].y + (app.input.width() as u16 / (chunks[2].width - 2)) + 1;
                         f.set_cursor(x, y);
+
+                        let users: Vec<_> = app
+                            .users
+                            .iter()
+                            .map(|u| ListItem::new(Span::raw(u)))
+                            .collect();
+                        let users_widget = List::new(users);
+                        f.render_widget(users_widget, chunks[3]);
                     })
                     .unwrap();
 
@@ -225,6 +238,9 @@ impl TuiApp {
                     },
                     Ok(TuiAppEvent::Message(content)) => {
                         app.messages.push(content);
+                    }
+                    Ok(TuiAppEvent::UserList(users)) => {
+                        app.users = users;
                     }
                     _ => {}
                 }

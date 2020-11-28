@@ -24,8 +24,8 @@ pub enum ServerCommand {
 ///
 /// Use this enum to identify among them.
 #[derive(Clone)]
-pub enum ServerOperation {
+pub enum Operation {
     FromClient(ClientCommand),
     FromPeer(User, Message),
-    FromServer(Message),
+    FromServer(ServerCommand),
 }
