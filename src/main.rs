@@ -4,6 +4,7 @@
 extern crate serde;
 
 mod app;
+mod basic_app;
 mod client;
 mod error;
 mod message;

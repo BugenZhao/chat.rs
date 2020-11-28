@@ -8,7 +8,8 @@ use futures::{
 use tokio::{net::TcpStream, sync::mpsc};
 use tokio_util::codec::{Framed, LinesCodec};
 
-use crate::app::{BasicApp, TuiApp};
+use crate::app::TuiApp;
+use crate::basic_app::BasicApp;
 use crate::message::*;
 use crate::protocol::*;
 

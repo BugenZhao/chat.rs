@@ -18,49 +18,6 @@ use crate::{client::ClientInput, error::*, message::User, protocol::ServerComman
 type Tx<T> = mpsc::UnboundedSender<T>;
 type Rx<T> = mpsc::UnboundedReceiver<T>;
 
-pub struct BasicApp {}
-
-impl BasicApp {
-    pub fn start(input_tx: Tx<ClientInput>, mut msg_rx: Rx<ServerCommand>) -> Result<()> {
-        tokio::spawn(async move {
-            loop {
-                let input = {
-                    let mut buf = String::new();
-                    std::io::stdin().read_line(&mut buf).unwrap();
-                    buf
-                };
-                input_tx.send(ClientInput::Text(input)).unwrap();
-            }
-        });
-
-        tokio::spawn(async move {
-            while let Some(command) = msg_rx.recv().await {
-                match command {
-                    ServerCommand::UserMessage(user, message) => {
-                        let msg = format!("[{}] {}", user, message);
-                        println!("{}", msg);
-                    }
-                    ServerCommand::ServerMessage(message) => {
-                        let msg = format!("<SERVER> {}", message);
-                        println!("{}", msg);
-                    }
-                    ServerCommand::UserList(users) => {
-                        let msg = format!("<SERVER> Online users: {:?}", users);
-                        println!("{}", msg);
-                    }
-                    ServerCommand::Error(message) => {
-                        let msg = format!("<SERVER> unknown: {}", message);
-                        println!("{}", msg);
-                    }
-                    ServerCommand::ServerName(_) => {}
-                }
-            }
-        });
-
-        Ok(())
-    }
-}
-
 type TuiStyledString = (String, Style);
 
 #[derive(Default)]
