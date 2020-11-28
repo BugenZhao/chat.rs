@@ -103,6 +103,13 @@
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="kw-2">*</span>;
 
@@ -114,7 +121,7 @@
 <span class="kw">use</span> <span class="ident">tokio</span>::{<span class="ident">net</span>::<span class="ident">TcpStream</span>, <span class="ident">sync</span>::<span class="ident">mpsc</span>};
 <span class="kw">use</span> <span class="ident">tokio_util</span>::<span class="ident">codec</span>::{<span class="ident">Framed</span>, <span class="ident">LinesCodec</span>};
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">app</span>::{<span class="ident">BasicApp</span>, <span class="ident">TuiApp</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">app</span>::{<span class="ident">App</span>, <span class="ident">BasicApp</span>, <span class="ident">TuiApp</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">message</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">protocol</span>::<span class="kw-2">*</span>;
 
@@ -130,6 +137,7 @@
     <span class="ident">tui</span>: <span class="ident">bool</span>,
 }
 
+<span class="doccomment">/// Types of input from the app</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ClientInput</span> {
     <span class="ident">Text</span>(<span class="ident">String</span>),
@@ -155,11 +163,19 @@
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">tcp_tx</span>, <span class="kw-2">mut</span> <span class="ident">tcp_rx</span>) <span class="op">=</span> <span class="ident">Framed</span>::<span class="ident">new</span>(<span class="ident">stream</span>, <span class="ident">LinesCodec</span>::<span class="ident">new</span>()) <span class="comment">// split tcp stream data into framed line&#39;s</span>
             .<span class="ident">split</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>(); <span class="comment">// split the framed stream into two halves</span>
 
+        <span class="comment">// the following channels are used to communicate between the client and the app</span>
         <span class="kw">let</span> (<span class="ident">msg_tx</span>, <span class="ident">msg_rx</span>) <span class="op">=</span> <span class="ident">mpsc</span>::<span class="ident">unbounded_channel</span>::<span class="op">&lt;</span><span class="ident">ServerCommand</span><span class="op">&gt;</span>();
         <span class="kw">let</span> (<span class="ident">input_tx</span>, <span class="kw-2">mut</span> <span class="ident">input_rx</span>) <span class="op">=</span> <span class="ident">mpsc</span>::<span class="ident">unbounded_channel</span>::<span class="op">&lt;</span><span class="ident">ClientInput</span><span class="op">&gt;</span>();
 
-        <span class="comment">// recv task, rx moved</span>
-        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">async</span> <span class="kw">move</span> {
+        <span class="comment">// launch the app task</span>
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">tui</span> {
+            <span class="ident">TuiApp</span>::<span class="ident">start</span>(<span class="ident">input_tx</span>, <span class="ident">msg_rx</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>)<span class="question-mark">?</span>;
+        } <span class="kw">else</span> {
+            <span class="ident">BasicApp</span>::<span class="ident">start</span>(<span class="ident">input_tx</span>, <span class="ident">msg_rx</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="comment">// recv task: read from `tcp_rx`, send to `msg_tx`</span>
+        <span class="kw">let</span> <span class="ident">_recv_task</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">async</span> <span class="kw">move</span> {
             <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">result</span>) <span class="op">=</span> <span class="ident">tcp_rx</span>.<span class="ident">next</span>().<span class="ident">await</span> {
                 <span class="kw">match</span> <span class="ident">result</span> {
                     <span class="prelude-val">Ok</span>(<span class="ident">raw_str</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -177,31 +193,29 @@
             }
         });
 
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">tui</span> {
-            <span class="ident">TuiApp</span>::<span class="ident">start</span>(<span class="ident">input_tx</span>, <span class="ident">msg_rx</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>)<span class="question-mark">?</span>;
-        } <span class="kw">else</span> {
-            <span class="ident">BasicApp</span>::<span class="ident">start</span>(<span class="ident">input_tx</span>, <span class="ident">msg_rx</span>)<span class="question-mark">?</span>;
-        }
+        <span class="comment">// send task: read from `input_rx`, send to `tcp_tx`</span>
+        <span class="kw">let</span> <span class="ident">_send_task</span> <span class="op">=</span> {
+            <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">send</span> {
+                (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">msg</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tcp_tx</span>.<span class="ident">send</span>(<span class="ident">serde_json</span>::<span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">msg</span>).<span class="ident">unwrap</span>()).<span class="ident">await</span>;
+                };
+            }
 
-        <span class="comment">// send task</span>
-        <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">send</span> {
-            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">msg</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">tcp_tx</span>.<span class="ident">send</span>(<span class="ident">serde_json</span>::<span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">msg</span>).<span class="ident">unwrap</span>()).<span class="ident">await</span><span class="question-mark">?</span>;
-            };
-        }
+            <span class="comment">// set name first to register</span>
+            <span class="macro">send</span><span class="macro">!</span>(<span class="ident">ClientCommand</span>::<span class="ident">SetName</span>(<span class="self">self</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
 
-        <span class="macro">send</span><span class="macro">!</span>(<span class="ident">ClientCommand</span>::<span class="ident">SetName</span>(<span class="self">self</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input</span>) <span class="op">=</span> <span class="ident">input_rx</span>.<span class="ident">next</span>().<span class="ident">await</span> {
-            <span class="kw">match</span> <span class="ident">input</span> {
-                <span class="ident">ClientInput</span>::<span class="ident">Text</span>(<span class="ident">text</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="comment">// read messages from input_rx and send them</span>
-                    <span class="macro">send</span><span class="macro">!</span>(<span class="ident">ClientCommand</span>::<span class="ident">SendMessage</span>(<span class="ident">Message</span>::<span class="ident">Text</span>(<span class="ident">text</span>)));
-                }
-                <span class="ident">ClientInput</span>::<span class="ident">Exit</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw">break</span>;
+            <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input</span>) <span class="op">=</span> <span class="ident">input_rx</span>.<span class="ident">next</span>().<span class="ident">await</span> {
+                <span class="kw">match</span> <span class="ident">input</span> {
+                    <span class="ident">ClientInput</span>::<span class="ident">Text</span>(<span class="ident">text</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="comment">// read messages from input_rx(app) and send them</span>
+                        <span class="macro">send</span><span class="macro">!</span>(<span class="ident">ClientCommand</span>::<span class="ident">SendMessage</span>(<span class="ident">Message</span>::<span class="ident">Text</span>(<span class="ident">text</span>)));
+                    }
+                    <span class="ident">ClientInput</span>::<span class="ident">Exit</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">break</span>;
+                    }
                 }
             }
-        }
+        };
 
         <span class="prelude-val">Ok</span>(())
     }

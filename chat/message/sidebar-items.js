@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Message",""]],"type":[["User",""]]});
+initSidebarItems({"enum":[["Message","All possible kinds of normal messages"]],"type":[["User",""]]});

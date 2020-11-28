@@ -239,6 +239,18 @@
 <span id="236">236</span>
 <span id="237">237</span>
 <span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="kw-2">*</span>;
 
@@ -263,7 +275,7 @@
 <span class="kw">type</span> <span class="ident">Tx</span> <span class="op">=</span> <span class="ident">mpsc</span>::<span class="ident">UnboundedSender</span><span class="op">&lt;</span><span class="ident">Operation</span><span class="op">&gt;</span>;
 <span class="kw">type</span> <span class="ident">Rx</span> <span class="op">=</span> <span class="ident">mpsc</span>::<span class="ident">UnboundedReceiver</span><span class="op">&lt;</span><span class="ident">Operation</span><span class="op">&gt;</span>;
 
-<span class="doccomment">/// Representing a registered user</span>
+<span class="doccomment">/// RecvPeer represents a registered user</span>
 <span class="doccomment">/// - transport: a framed tcp stream, used for communicating between server and client</span>
 <span class="doccomment">/// - rx: the recv half of the inter-peer channels, used for **receiving** broadcast messages from other peers</span>
 <span class="kw">struct</span> <span class="ident">RecvPeer</span> {
@@ -271,6 +283,7 @@
     <span class="ident">rx</span>: <span class="ident">Rx</span>,
 }
 
+<span class="doccomment">/// SendPeer will be used to broadcast from other peers</span>
 <span class="kw">struct</span> <span class="ident">SendPeer</span> {
     <span class="ident">tx</span>: <span class="ident">Tx</span>,
     <span class="ident">username</span>: <span class="ident">User</span>,
@@ -326,7 +339,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">ServerState</span> {
-    <span class="doccomment">/// Broadcast an operation to all peers through their send halves in the state</span>
+    <span class="doccomment">/// Broadcast an operation to all peers through their send halves in the `state`</span>
     <span class="kw">fn</span> <span class="ident">broadcast</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">op</span>: <span class="ident">Operation</span>, <span class="ident">excludes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span>) {
         <span class="kw">for</span> (<span class="ident">_peer_addr</span>, <span class="ident">peer</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">peers</span>.<span class="ident">iter_mut</span>() {
             <span class="kw">if</span> <span class="op">!</span><span class="ident">excludes</span>.<span class="ident">contains</span>(<span class="ident">_peer_addr</span>) {
@@ -335,6 +348,7 @@
         }
     }
 
+    <span class="doccomment">/// Broadcast the list of all online users</span>
     <span class="kw">fn</span> <span class="ident">broadcast_user_list</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
         <span class="kw">let</span> <span class="ident">users</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">peers</span>
@@ -356,6 +370,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Server</span> {
+    <span class="doccomment">/// Construct a server. Will allocate a shared `ServerState`</span>
     <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">port</span>: <span class="ident">u16</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">listener</span>: <span class="ident">TcpListener</span>::<span class="ident">bind</span>((<span class="string">&quot;0.0.0.0&quot;</span>, <span class="ident">port</span>)).<span class="ident">await</span><span class="question-mark">?</span>,
@@ -373,6 +388,7 @@
         <span class="kw">loop</span> {
             <span class="kw">let</span> (<span class="ident">stream</span>, <span class="ident">addr</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">listener</span>.<span class="ident">accept</span>().<span class="ident">await</span><span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">arc_state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">clone</span>();
+            <span class="comment">// spawn a new task to handle the connection</span>
             <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">async</span> <span class="kw">move</span> {
                 <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> <span class="ident">Framed</span>::<span class="ident">new</span>(<span class="ident">stream</span>, <span class="ident">LinesCodec</span>::<span class="ident">new</span>());
                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">handle</span>(<span class="ident">transport</span>, <span class="ident">addr</span>, <span class="ident">arc_state</span>).<span class="ident">await</span>;
@@ -405,8 +421,9 @@
             <span class="kw">match</span> <span class="ident">result</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">op</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">match</span> <span class="ident">op</span> {
+                        <span class="comment">// a request from the client</span>
                         <span class="ident">Operation</span>::<span class="ident">FromClient</span>(<span class="ident">command</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">command</span> {
-                            <span class="comment">// a request from the client</span>
+                            <span class="comment">// set client&#39;s name</span>
                             <span class="ident">ClientCommand</span>::<span class="ident">SetName</span>(<span class="ident">new_name</span>) <span class="op">=</span><span class="op">&gt;</span> {
                                 <span class="kw">if</span> <span class="ident">new_name</span>.<span class="ident">is_empty</span>() {
                                     <span class="kw">continue</span>;
@@ -416,8 +433,10 @@
                                 {
                                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">lock</span>().<span class="ident">await</span>;
                                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">send_peer</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peers</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">addr</span>) {
-                                        <span class="ident">send_peer</span>.<span class="ident">username</span> <span class="op">=</span> <span class="ident">new_name</span>.<span class="ident">clone</span>();
+                                        <span class="ident">send_peer</span>.<span class="ident">username</span> <span class="op">=</span> <span class="ident">new_name</span>.<span class="ident">clone</span>(); <span class="comment">// record new name in state</span>
                                     }
+
+                                    <span class="comment">// newly incoming user</span>
                                     <span class="kw">if</span> <span class="ident">name</span>.<span class="ident">is_empty</span>() {
                                         <span class="ident">state</span>.<span class="ident">broadcast</span>(
                                             <span class="ident">Operation</span>::<span class="ident">FromServer</span>(<span class="ident">ServerCommand</span>::<span class="ident">ServerMessage</span>(
@@ -425,6 +444,7 @@
                                             )),
                                             <span class="macro">vec</span><span class="macro">!</span>[],
                                         );
+                                        <span class="comment">// tell the server name</span>
                                         <span class="macro">send</span><span class="macro">!</span>(<span class="kw-2">&amp;</span><span class="ident">ServerCommand</span>::<span class="ident">ServerName</span>(<span class="ident">state</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
                                     }
                                     <span class="ident">state</span>.<span class="ident">broadcast_user_list</span>();
@@ -432,14 +452,15 @@
 
                                 <span class="ident">name</span> <span class="op">=</span> <span class="ident">new_name</span>;
                             }
+                            <span class="comment">// commands requested without name are ignored</span>
                             <span class="kw">_</span> <span class="kw">if</span> <span class="ident">name</span>.<span class="ident">is_empty</span>() <span class="op">=</span><span class="op">&gt;</span> {
-                                <span class="comment">// commands without name are ignored</span>
                                 <span class="kw">continue</span>;
                             }
+                            <span class="comment">// message from client</span>
                             <span class="ident">ClientCommand</span>::<span class="ident">SendMessage</span>(<span class="ident">message</span>) <span class="op">=</span><span class="op">&gt;</span> {
                                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">lock</span>().<span class="ident">await</span>;
                                 <span class="ident">state</span>.<span class="ident">history</span>.<span class="ident">push</span>((<span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">message</span>.<span class="ident">clone</span>()));
-                                <span class="comment">// send FromPeer ops to broadcast the latest incoming message to all peers</span>
+                                <span class="comment">// send FromPeer ops to broadcast this message to all peers</span>
                                 <span class="ident">state</span>.<span class="ident">broadcast</span>(
                                     <span class="ident">Operation</span>::<span class="ident">FromPeer</span>(<span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">message</span>.<span class="ident">clone</span>()),
                                     <span class="macro">vec</span><span class="macro">!</span>[],
@@ -447,12 +468,12 @@
                                 <span class="macro">log</span><span class="macro">!</span>(<span class="ident">info</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="ident">message</span>);
                             }
                         },
+                        <span class="comment">// a broadcast from other peers</span>
                         <span class="ident">Operation</span>::<span class="ident">FromPeer</span>(<span class="ident">user</span>, <span class="ident">message</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                            <span class="comment">// a broadcast from other peers</span>
                             <span class="macro">send</span><span class="macro">!</span>(<span class="kw-2">&amp;</span><span class="ident">ServerCommand</span>::<span class="ident">UserMessage</span>(<span class="ident">user</span>, <span class="ident">message</span>));
                         }
+                        <span class="comment">// a message from server itself, straightly forward to the client</span>
                         <span class="ident">Operation</span>::<span class="ident">FromServer</span>(<span class="ident">message</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                            <span class="comment">// a message from server itself, straightly forward to the client</span>
                             <span class="macro">send</span><span class="macro">!</span>(<span class="ident">message</span>);
                         }
                     }
@@ -468,9 +489,12 @@
         {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">lock</span>().<span class="ident">await</span>;
             <span class="ident">state</span>.<span class="ident">peers</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">addr</span>);
+
+            <span class="comment">// broadcast left message</span>
             <span class="kw">let</span> <span class="ident">leave_msg</span> <span class="op">=</span> <span class="ident">Message</span>::<span class="ident">Text</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{} left.&quot;</span>, <span class="ident">name</span>));
             <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="ident">Operation</span>::<span class="ident">FromServer</span>(<span class="ident">ServerCommand</span>::<span class="ident">ServerMessage</span>(<span class="ident">leave_msg</span>));
             <span class="ident">state</span>.<span class="ident">broadcast</span>(<span class="ident">op</span>, <span class="macro">vec</span><span class="macro">!</span>[]);
+
             <span class="ident">state</span>.<span class="ident">broadcast_user_list</span>();
             <span class="macro">log</span><span class="macro">!</span>(<span class="ident">info</span>, <span class="string">&quot;left&quot;</span>);
         }

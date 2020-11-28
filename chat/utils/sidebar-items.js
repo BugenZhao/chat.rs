@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["new_name","Generate a random adj-noun name if the input is empty"]]});

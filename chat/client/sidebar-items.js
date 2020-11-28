@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["ClientInput",""]],"struct":[["Client","The chat client"]],"type":[["Rx",""],["Transport",""],["Tx",""]]});
+initSidebarItems({"enum":[["ClientInput","Types of input from the app"]],"struct":[["Client","The chat client"]],"type":[["Rx",""],["Transport",""],["Tx",""]]});

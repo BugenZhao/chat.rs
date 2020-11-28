@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["TuiAppEvent",""]],"struct":[["BasicApp",""],["TuiApp",""]],"type":[["Rx",""],["TuiStyledString",""],["Tx",""]]});
+initSidebarItems({"mod":[["basic_app",""],["tui_app",""]],"trait":[["App","Collect user inputs to `Client` and show data from `Client`"]],"type":[["Rx",""],["Tx",""]]});

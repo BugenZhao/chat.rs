@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BasicApp","A basic app which does not split input and output"]],"type":[["Rx",""],["Tx",""]]});
