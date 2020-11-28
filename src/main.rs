@@ -26,6 +26,8 @@ pub enum Opt {
         port: u16,
         #[structopt(short, long)]
         name: String,
+        #[structopt(short, long)]
+        tui: bool,
     },
     Server {
         #[structopt(short, long, default_value = "30388")]
@@ -40,8 +42,13 @@ async fn main() -> Result<()> {
         .init();
 
     match Opt::from_args() {
-        Opt::Client { server, port, name } => {
-            let client = client::Client::new(&name, &server, port);
+        Opt::Client {
+            server,
+            port,
+            name,
+            tui,
+        } => {
+            let client = client::Client::new(&name, &server, port, tui);
             client.run().await?;
         }
         Opt::Server { port } => {
@@ -49,5 +56,6 @@ async fn main() -> Result<()> {
             server.run().await?;
         }
     }
-    Ok(())
+
+    std::process::exit(0);
 }

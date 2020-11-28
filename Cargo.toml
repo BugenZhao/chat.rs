@@ -1,6 +1,6 @@
 [package]
 name = "chat"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Bugen Zhao <i@bugenzhao.com>"]
 edition = "2018"
 
@@ -18,3 +18,4 @@ log = "*"
 env_logger = "*"
 tui = "*"
 termion = "1.5"
+unicode-width = "*"
