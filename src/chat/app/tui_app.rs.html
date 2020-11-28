@@ -292,6 +292,7 @@
 <span id="289">289</span>
 <span id="290">290</span>
 <span id="291">291</span>
+<span id="292">292</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">net</span>::<span class="ident">SocketAddr</span>;
 
@@ -432,7 +433,7 @@
                             .<span class="ident">margin</span>(<span class="number">1</span>)
                             .<span class="ident">direction</span>(<span class="ident">Direction</span>::<span class="ident">Vertical</span>)
                             .<span class="ident">constraints</span>([
-                                <span class="ident">Constraint</span>::<span class="ident">Min</span>(<span class="number">2</span>),
+                                <span class="ident">Constraint</span>::<span class="ident">Max</span>(<span class="number">2</span>),
                                 <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">70</span>),
                                 <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">20</span>),
                             ])
@@ -514,7 +515,8 @@
                     <span class="comment">// keyboard</span>
                     <span class="prelude-val">Ok</span>(<span class="ident">AppEvent</span>::<span class="ident">Key</span>(<span class="ident">key</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">key</span> {
                         <span class="comment">// return key</span>
-                        <span class="ident">Key</span>::<span class="ident">Char</span>(<span class="string">&#39;\n&#39;</span>) <span class="kw">if</span> <span class="op">!</span><span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">is_empty</span>() <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">Key</span>::<span class="ident">Char</span>(<span class="string">&#39;\n&#39;</span>) <span class="kw">if</span> <span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">is_empty</span>() <span class="op">=</span><span class="op">&gt;</span> {}
+                        <span class="ident">Key</span>::<span class="ident">Char</span>(<span class="string">&#39;\n&#39;</span>) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw">let</span> <span class="ident">text</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">drain</span>(..).<span class="ident">collect</span>();
                             <span class="ident">app</span>.<span class="ident">last_input</span> <span class="op">=</span> <span class="ident">text</span>.<span class="ident">clone</span>();
 
@@ -542,7 +544,7 @@
                             }
                         }
                         <span class="comment">// push new char</span>
-                        <span class="ident">Key</span>::<span class="ident">Char</span>(<span class="ident">char</span>) <span class="kw">if</span> <span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="number">140</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">char</span>.<span class="ident">is_whitespace</span>() <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">Key</span>::<span class="ident">Char</span>(<span class="ident">char</span>) <span class="kw">if</span> <span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="number">140</span> <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">push</span>(<span class="ident">char</span>);
                         }
                         <span class="comment">// pop the last char</span>
