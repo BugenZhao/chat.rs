@@ -211,6 +211,9 @@
 <span id="208">208</span>
 <span id="209">209</span>
 <span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">termion</span>::<span class="ident">event</span>::<span class="ident">Key</span>;
 <span class="kw">use</span> <span class="ident">termion</span>::{<span class="ident">input</span>::<span class="ident">TermRead</span>, <span class="ident">raw</span>::<span class="ident">IntoRawMode</span>, <span class="ident">screen</span>::<span class="ident">AlternateScreen</span>};
@@ -334,8 +337,8 @@
                             .<span class="ident">direction</span>(<span class="ident">Direction</span>::<span class="ident">Vertical</span>)
                             .<span class="ident">constraints</span>([
                                 <span class="ident">Constraint</span>::<span class="ident">Min</span>(<span class="number">2</span>),
-                                <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">20</span>),
                                 <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">80</span>),
+                                <span class="ident">Constraint</span>::<span class="ident">Percentage</span>(<span class="number">20</span>),
                             ])
                             .<span class="ident">split</span>(<span class="ident">f</span>.<span class="ident">size</span>());
 
@@ -354,6 +357,18 @@
                         ])));
                         <span class="ident">f</span>.<span class="ident">render_widget</span>(<span class="ident">help_widget</span>, <span class="ident">chunks</span>[<span class="number">0</span>]);
 
+                        <span class="kw">let</span> <span class="ident">messages</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">app</span>
+                            .<span class="ident">messages</span>
+                            .<span class="ident">iter</span>()
+                            .<span class="ident">rev</span>()
+                            .<span class="ident">take</span>((<span class="ident">chunks</span>[<span class="number">1</span>].<span class="ident">height</span> <span class="op">-</span> <span class="number">2</span>) <span class="kw">as</span> <span class="ident">usize</span>)
+                            .<span class="ident">rev</span>()
+                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">ListItem</span>::<span class="ident">new</span>(<span class="ident">Span</span>::<span class="ident">raw</span>(<span class="ident">m</span>)))
+                            .<span class="ident">collect</span>();
+                        <span class="kw">let</span> <span class="ident">message_widget</span> <span class="op">=</span> <span class="ident">List</span>::<span class="ident">new</span>(<span class="ident">messages</span>)
+                            .<span class="ident">block</span>(<span class="ident">Block</span>::<span class="ident">default</span>().<span class="ident">borders</span>(<span class="ident">Borders</span>::<span class="ident">ALL</span>).<span class="ident">title</span>(<span class="string">&quot;Messages&quot;</span>));
+                        <span class="ident">f</span>.<span class="ident">render_widget</span>(<span class="ident">message_widget</span>, <span class="ident">chunks</span>[<span class="number">1</span>]);
+
                         <span class="kw">let</span> <span class="ident">input_widget</span> <span class="op">=</span> <span class="ident">Paragraph</span>::<span class="ident">new</span>(<span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">as_ref</span>())
                             .<span class="ident">style</span>(<span class="ident">Style</span>::<span class="ident">default</span>().<span class="ident">fg</span>(<span class="ident">Color</span>::<span class="ident">Yellow</span>))
                             .<span class="ident">wrap</span>(<span class="ident">Wrap</span> { <span class="ident">trim</span>: <span class="bool-val">true</span> })
@@ -362,21 +377,12 @@
                                     .<span class="ident">borders</span>(<span class="ident">Borders</span>::<span class="ident">ALL</span>)
                                     .<span class="ident">title</span>(<span class="ident">app</span>.<span class="ident">name</span>.<span class="ident">clone</span>()),
                             );
-                        <span class="ident">f</span>.<span class="ident">render_widget</span>(<span class="ident">input_widget</span>, <span class="ident">chunks</span>[<span class="number">1</span>]);
-
-                        <span class="kw">let</span> <span class="ident">messages</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">app</span>
-                            .<span class="ident">messages</span>
-                            .<span class="ident">iter</span>()
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">ListItem</span>::<span class="ident">new</span>(<span class="ident">Span</span>::<span class="ident">raw</span>(<span class="ident">m</span>)))
-                            .<span class="ident">collect</span>();
-                        <span class="kw">let</span> <span class="ident">message_widget</span> <span class="op">=</span> <span class="ident">List</span>::<span class="ident">new</span>(<span class="ident">messages</span>)
-                            .<span class="ident">block</span>(<span class="ident">Block</span>::<span class="ident">default</span>().<span class="ident">borders</span>(<span class="ident">Borders</span>::<span class="ident">ALL</span>).<span class="ident">title</span>(<span class="string">&quot;Messages&quot;</span>));
-                        <span class="ident">f</span>.<span class="ident">render_widget</span>(<span class="ident">message_widget</span>, <span class="ident">chunks</span>[<span class="number">2</span>]);
+                        <span class="ident">f</span>.<span class="ident">render_widget</span>(<span class="ident">input_widget</span>, <span class="ident">chunks</span>[<span class="number">2</span>]);
 
                         <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span>
-                            <span class="ident">chunks</span>[<span class="number">1</span>].<span class="ident">x</span> <span class="op">+</span> (<span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">width</span>() <span class="kw">as</span> <span class="ident">u16</span> <span class="op">%</span> (<span class="ident">chunks</span>[<span class="number">1</span>].<span class="ident">width</span> <span class="op">-</span> <span class="number">2</span>)) <span class="op">+</span> <span class="number">1</span>;
+                            <span class="ident">chunks</span>[<span class="number">2</span>].<span class="ident">x</span> <span class="op">+</span> (<span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">width</span>() <span class="kw">as</span> <span class="ident">u16</span> <span class="op">%</span> (<span class="ident">chunks</span>[<span class="number">2</span>].<span class="ident">width</span> <span class="op">-</span> <span class="number">2</span>)) <span class="op">+</span> <span class="number">1</span>;
                         <span class="kw">let</span> <span class="ident">y</span> <span class="op">=</span>
-                            <span class="ident">chunks</span>[<span class="number">1</span>].<span class="ident">y</span> <span class="op">+</span> (<span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">width</span>() <span class="kw">as</span> <span class="ident">u16</span> <span class="op">/</span> (<span class="ident">chunks</span>[<span class="number">1</span>].<span class="ident">width</span> <span class="op">-</span> <span class="number">2</span>)) <span class="op">+</span> <span class="number">1</span>;
+                            <span class="ident">chunks</span>[<span class="number">2</span>].<span class="ident">y</span> <span class="op">+</span> (<span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">width</span>() <span class="kw">as</span> <span class="ident">u16</span> <span class="op">/</span> (<span class="ident">chunks</span>[<span class="number">2</span>].<span class="ident">width</span> <span class="op">-</span> <span class="number">2</span>)) <span class="op">+</span> <span class="number">1</span>;
                         <span class="ident">f</span>.<span class="ident">set_cursor</span>(<span class="ident">x</span>, <span class="ident">y</span>);
                     })
                     .<span class="ident">unwrap</span>();
@@ -388,11 +394,11 @@
                 <span class="kw">match</span> <span class="ident">event_rx</span>.<span class="ident">recv</span>() {
                     <span class="prelude-val">Ok</span>(<span class="ident">TuiAppEvent</span>::<span class="ident">Key</span>(<span class="ident">key</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">key</span> {
                         <span class="ident">Key</span>::<span class="ident">Char</span>(<span class="string">&#39;\n&#39;</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                            <span class="kw">let</span> <span class="ident">text</span> <span class="op">=</span> <span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">drain</span>(..).<span class="ident">collect</span>();
+                            <span class="kw">let</span> <span class="ident">text</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">app</span>.<span class="ident">input</span>.<span class="ident">drain</span>(..).<span class="ident">collect</span>();
                             <span class="kw">if</span> <span class="ident">text</span> <span class="op">=</span><span class="op">=</span> <span class="string">&quot;:exit&quot;</span> {
                                 <span class="ident">input_tx</span>.<span class="ident">send</span>(<span class="ident">ClientInput</span>::<span class="ident">Exit</span>).<span class="ident">unwrap</span>();
                                 <span class="ident">exited</span> <span class="op">=</span> <span class="bool-val">true</span>;
-                            } <span class="kw">else</span> {
+                            } <span class="kw">else</span> <span class="kw">if</span> <span class="op">!</span><span class="ident">text</span>.<span class="ident">is_empty</span>() {
                                 <span class="ident">input_tx</span>.<span class="ident">send</span>(<span class="ident">ClientInput</span>::<span class="ident">Text</span>(<span class="ident">text</span>)).<span class="ident">unwrap</span>();
                             }
                         }
