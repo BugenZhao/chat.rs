@@ -8,10 +8,10 @@ use futures::{
 use tokio::{net::TcpStream, sync::mpsc};
 use tokio_util::codec::{Framed, LinesCodec};
 
-use crate::app::TuiApp;
 use crate::basic_app::BasicApp;
 use crate::message::*;
 use crate::protocol::*;
+use crate::tui_app::TuiApp;
 
 type Transport = Framed<TcpStream, LinesCodec>;
 type Tx = SplitSink<Transport, String>;
