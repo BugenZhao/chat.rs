@@ -1,7 +1,6 @@
 use termion::event::Key;
 use termion::{input::TermRead, raw::IntoRawMode, screen::AlternateScreen};
 use tokio::{stream::StreamExt, sync::mpsc};
-use tokio_util::codec::{BytesCodec, FramedRead, LinesCodec};
 use tui::{
     backend::TermionBackend,
     layout::{Constraint, Direction, Layout},
@@ -117,18 +116,39 @@ impl TuiApp {
                 terminal
                     .draw(|f| {
                         let chunks = Layout::default()
+                            .margin(1)
                             .direction(Direction::Vertical)
-                            .constraints([Constraint::Percentage(20), Constraint::Percentage(80)])
+                            .constraints([
+                                Constraint::Min(2),
+                                Constraint::Percentage(20),
+                                Constraint::Percentage(80),
+                            ])
                             .split(f.size());
 
+                        let help_widget = Paragraph::new(Text::from(Spans::from(vec![
+                            Span::styled(
+                                " Chat -- ",
+                                Style::default()
+                                    .add_modifier(Modifier::ITALIC)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                            Span::raw("Press "),
+                            Span::styled("ESC", Style::default().add_modifier(Modifier::BOLD)),
+                            Span::raw(" or send "),
+                            Span::styled(":exit", Style::default().add_modifier(Modifier::BOLD)),
+                            Span::raw(" to exit"),
+                        ])));
+                        f.render_widget(help_widget, chunks[0]);
+
                         let input_widget = Paragraph::new(app.input.as_ref())
+                            .style(Style::default().fg(Color::Yellow))
                             .wrap(Wrap { trim: true })
                             .block(
                                 Block::default()
                                     .borders(Borders::ALL)
                                     .title(app.name.clone()),
                             );
-                        f.render_widget(input_widget, chunks[0]);
+                        f.render_widget(input_widget, chunks[1]);
 
                         let messages: Vec<_> = app
                             .messages
@@ -137,12 +157,12 @@ impl TuiApp {
                             .collect();
                         let message_widget = List::new(messages)
                             .block(Block::default().borders(Borders::ALL).title("Messages"));
-                        f.render_widget(message_widget, chunks[1]);
+                        f.render_widget(message_widget, chunks[2]);
 
                         let x =
-                            chunks[0].x + (app.input.width() as u16 % (chunks[0].width - 2)) + 1;
+                            chunks[1].x + (app.input.width() as u16 % (chunks[1].width - 2)) + 1;
                         let y =
-                            chunks[0].y + (app.input.width() as u16 / (chunks[0].width - 2)) + 1;
+                            chunks[1].y + (app.input.width() as u16 / (chunks[1].width - 2)) + 1;
                         f.set_cursor(x, y);
                     })
                     .unwrap();

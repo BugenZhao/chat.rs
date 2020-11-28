@@ -49,7 +49,6 @@ impl Client {
 
         let (msg_tx, msg_rx) = mpsc::unbounded_channel::<String>();
         let (input_tx, mut input_rx) = mpsc::unbounded_channel::<ClientInput>();
-        let (exit_tx, mut exit_rx) = tokio::sync::mpsc::unbounded_channel::<bool>();
 
         // recv task, rx moved
         tokio::spawn(async move {
