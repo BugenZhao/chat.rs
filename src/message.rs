@@ -1,6 +1,7 @@
 use std::fmt;
 
 pub type User = String;
+/// All possible kinds of normal messages
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Message {
     Text(String),

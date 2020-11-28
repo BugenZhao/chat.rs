@@ -9,6 +9,7 @@ mod error;
 mod message;
 mod protocol;
 mod server;
+mod utils;
 
 use crate::error::*;
 use structopt::StructOpt;
@@ -16,7 +17,7 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 #[structopt(
     name = "chat",
-    about = "An example of async chat client/server with tokio."
+    about = "An example of async chat client/server in tokio with terminal UI."
 )]
 pub enum Opt {
     Client {
@@ -50,20 +51,12 @@ async fn main() -> Result<()> {
             name,
             basic: raw,
         } => {
-            let name = if name.is_empty() {
-                names::Generator::default().next().unwrap()
-            } else {
-                name
-            };
+            let name = utils::new_name(name);
             let client = client::Client::new(&name, &server, port, !raw);
             client.run().await?;
         }
         Opt::Server { port, name } => {
-            let name = if name.is_empty() {
-                names::Generator::default().next().unwrap()
-            } else {
-                name
-            };
+            let name = utils::new_name(name);
             let server = server::Server::new(port, name).await?;
             server.run().await?;
         }

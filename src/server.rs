@@ -21,7 +21,7 @@ type Transport = Framed<TcpStream, LinesCodec>;
 type Tx = mpsc::UnboundedSender<Operation>;
 type Rx = mpsc::UnboundedReceiver<Operation>;
 
-/// Representing a registered user
+/// RecvPeer represents a registered user
 /// - transport: a framed tcp stream, used for communicating between server and client
 /// - rx: the recv half of the inter-peer channels, used for **receiving** broadcast messages from other peers
 struct RecvPeer {
@@ -29,6 +29,7 @@ struct RecvPeer {
     rx: Rx,
 }
 
+/// SendPeer will be used to broadcast from other peers
 struct SendPeer {
     tx: Tx,
     username: User,
@@ -84,7 +85,7 @@ struct ServerState {
 }
 
 impl ServerState {
-    /// Broadcast an operation to all peers through their send halves in the state
+    /// Broadcast an operation to all peers through their send halves in the `state`
     fn broadcast(&mut self, op: Operation, excludes: Vec<SocketAddr>) {
         for (_peer_addr, peer) in self.peers.iter_mut() {
             if !excludes.contains(_peer_addr) {
@@ -93,6 +94,7 @@ impl ServerState {
         }
     }
 
+    /// Broadcast the list of all online users
     fn broadcast_user_list(&mut self) {
         let users = self
             .peers
@@ -114,6 +116,7 @@ pub struct Server {
 }
 
 impl Server {
+    /// Construct a server. Will allocate a shared `ServerState`
     pub async fn new(port: u16, name: String) -> Result<Self> {
         Ok(Self {
             listener: TcpListener::bind(("0.0.0.0", port)).await?,
@@ -131,6 +134,7 @@ impl Server {
         loop {
             let (stream, addr) = self.listener.accept().await?;
             let arc_state = self.state.clone();
+            // spawn a new task to handle the connection
             tokio::spawn(async move {
                 let transport = Framed::new(stream, LinesCodec::new());
                 let _ = Self::handle(transport, addr, arc_state).await;
@@ -163,8 +167,9 @@ impl Server {
             match result {
                 Ok(op) => {
                     match op {
+                        // a request from the client
                         Operation::FromClient(command) => match command {
-                            // a request from the client
+                            // set client's name
                             ClientCommand::SetName(new_name) => {
                                 if new_name.is_empty() {
                                     continue;
@@ -174,8 +179,10 @@ impl Server {
                                 {
                                     let mut state = state.lock().await;
                                     if let Some(send_peer) = state.peers.get_mut(&addr) {
-                                        send_peer.username = new_name.clone();
+                                        send_peer.username = new_name.clone(); // record new name in state
                                     }
+
+                                    // newly incoming user
                                     if name.is_empty() {
                                         state.broadcast(
                                             Operation::FromServer(ServerCommand::ServerMessage(
@@ -183,6 +190,7 @@ impl Server {
                                             )),
                                             vec![],
                                         );
+                                        // tell the server name
                                         send!(&ServerCommand::ServerName(state.name.clone()));
                                     }
                                     state.broadcast_user_list();
@@ -190,14 +198,15 @@ impl Server {
 
                                 name = new_name;
                             }
+                            // commands requested without name are ignored
                             _ if name.is_empty() => {
-                                // commands without name are ignored
                                 continue;
                             }
+                            // message from client
                             ClientCommand::SendMessage(message) => {
                                 let mut state = state.lock().await;
                                 state.history.push((name.clone(), message.clone()));
-                                // send FromPeer ops to broadcast the latest incoming message to all peers
+                                // send FromPeer ops to broadcast this message to all peers
                                 state.broadcast(
                                     Operation::FromPeer(name.clone(), message.clone()),
                                     vec![],
@@ -205,12 +214,12 @@ impl Server {
                                 log!(info, "{:?}", message);
                             }
                         },
+                        // a broadcast from other peers
                         Operation::FromPeer(user, message) => {
-                            // a broadcast from other peers
                             send!(&ServerCommand::UserMessage(user, message));
                         }
+                        // a message from server itself, straightly forward to the client
                         Operation::FromServer(message) => {
-                            // a message from server itself, straightly forward to the client
                             send!(message);
                         }
                     }
@@ -226,9 +235,12 @@ impl Server {
         {
             let mut state = state.lock().await;
             state.peers.remove(&addr);
+
+            // broadcast left message
             let leave_msg = Message::Text(format!("{} left.", name));
             let op = Operation::FromServer(ServerCommand::ServerMessage(leave_msg));
             state.broadcast(op, vec![]);
+
             state.broadcast_user_list();
             log!(info, "left");
         }

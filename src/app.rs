@@ -18,10 +18,6 @@ use crate::{client::ClientInput, error::*, message::User, protocol::ServerComman
 type Tx<T> = mpsc::UnboundedSender<T>;
 type Rx<T> = mpsc::UnboundedReceiver<T>;
 
-// pub trait App {
-//     fn start(input_tx: Tx<String>, msg_rx: Rx<String>) -> Result<()>;
-// }
-
 pub struct BasicApp {}
 
 impl BasicApp {
