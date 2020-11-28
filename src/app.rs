@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use termion::event::Key;
 use termion::{input::TermRead, raw::IntoRawMode, screen::AlternateScreen};
 use tokio::{stream::StreamExt, sync::mpsc};
@@ -46,7 +48,6 @@ impl BasicApp {
                         let msg = format!("<SERVER> {}", message);
                         println!("{}", msg);
                     }
-                    // TODO:
                     ServerCommand::NewUserList(users) => {
                         let msg = format!("<SERVER> Online users: {:?}", users);
                         println!("{}", msg);
@@ -77,22 +78,22 @@ impl AsyncKeys {
     }
 }
 
-type StyledTuiMessage = (String, Style);
+type TuiStyledString = (String, Style);
 
 #[derive(Default)]
 pub struct TuiApp {
     input: String,
     last_input: String,
-    messages: Vec<StyledTuiMessage>,
+    messages: Vec<TuiStyledString>,
     name: User,
-    users: Vec<User>,
+    users: Vec<TuiStyledString>,
 }
 
 #[derive(Debug)]
 enum TuiAppEvent {
     Key(termion::event::Key),
-    Message(StyledTuiMessage),
-    UserList(Vec<User>),
+    Message(TuiStyledString),
+    UserList(Vec<(User, SocketAddr)>),
 }
 
 impl TuiApp {
@@ -196,9 +197,7 @@ impl TuiApp {
                             .rev()
                             .take((chunks[1].height - 2) as usize)
                             .rev()
-                            .map(|(content, style)| {
-                                ListItem::new(Span::styled(content, style.clone()))
-                            })
+                            .map(|(c, s)| ListItem::new(Span::styled(c, s.clone())))
                             .collect();
                         let message_widget = List::new(messages)
                             .block(Block::default().borders(Borders::ALL).title("Messages"));
@@ -207,7 +206,7 @@ impl TuiApp {
                         let users: Vec<_> = app
                             .users
                             .iter()
-                            .map(|u| ListItem::new(Span::raw(u)))
+                            .map(|(c, s)| ListItem::new(Span::styled(c, s.clone())))
                             .collect();
                         let users_widget = List::new(users).block(
                             Block::default()
@@ -271,8 +270,8 @@ impl TuiApp {
                             app.input.pop();
                         }
                         Key::Esc => {
-                            // input_tx.send(ClientInput::Exit).unwrap();
-                            // exited = true;
+                            input_tx.send(ClientInput::Exit).unwrap();
+                            exited = true;
                         }
                         Key::Up if app.input.is_empty() => {
                             app.input = app.last_input.clone();
@@ -283,7 +282,11 @@ impl TuiApp {
                         app.messages.push(content);
                     }
                     Ok(TuiAppEvent::UserList(users)) => {
-                        app.users = users;
+                        app.users = users
+                            .into_iter()
+                            .map(|(n, _a)| n)
+                            .map(|s| (s, Style::default()))
+                            .collect();
                     }
                     _ => {}
                 }

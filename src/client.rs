@@ -43,7 +43,9 @@ impl Client {
 
     /// Connect to server and then send/receive messages
     pub async fn run(&self) -> Result<()> {
-        let stream = TcpStream::connect((self.server.to_owned(), self.port)).await?;
+        let server = (self.server.to_owned(), self.port);
+        println!("Connecting to {:?}...", server);
+        let stream = TcpStream::connect(server).await?;
         let (mut tcp_tx, mut tcp_rx) = Framed::new(stream, LinesCodec::new()) // split tcp stream data into framed line's
             .split::<String>(); // split the framed stream into two halves
 

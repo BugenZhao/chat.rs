@@ -34,6 +34,7 @@ struct RecvPeer {
 struct SendPeer {
     tx: Tx,
     username: User,
+    addr: SocketAddr,
 }
 
 impl RecvPeer {
@@ -45,6 +46,7 @@ impl RecvPeer {
             SendPeer {
                 tx,
                 username: User::new(),
+                addr,
             },
         );
 
@@ -98,21 +100,13 @@ impl ServerState {
         }
     }
 
-    fn all_valid_users(&self) -> Vec<User> {
-        self.peers
-            .values()
-            .map(|p| p.username.clone())
-            .filter(|n| !n.is_empty())
-            .collect()
-    }
-
     fn broadcast_user_list(&mut self) {
-        let users = self.all_valid_users();
-        // let op = ServerOperation::FromServer(if users.is_empty() {
-        //     Message::Text(format!("No other online users :("))
-        // } else {
-        //     Message::Text(format!("{} online users: {:?}", users.len(), users))
-        // });
+        let users = self
+            .peers
+            .values()
+            .map(|p| (p.username.clone(), p.addr))
+            .filter(|(n, _a)| !n.is_empty())
+            .collect();
         self.broadcast(
             Operation::FromServer(ServerCommand::NewUserList(users)),
             vec![],

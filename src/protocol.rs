@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use crate::message::*;
 
 use serde::{Deserialize, Serialize};
@@ -14,7 +16,7 @@ pub enum ClientCommand {
 pub enum ServerCommand {
     NewMessage(User, Message),
     ServerMessage(Message),
-    NewUserList(Vec<User>),
+    NewUserList(Vec<(User, SocketAddr)>),
 }
 
 /// Peer (inside the server) needs to receive messages from...
