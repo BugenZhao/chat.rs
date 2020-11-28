@@ -32,7 +32,12 @@
 <span id="29">29</span>
 <span id="30">30</span>
 <span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">net</span>::<span class="ident">SocketAddr</span>;
+
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">message</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
@@ -47,9 +52,10 @@
 <span class="doccomment">/// Command from server to client</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ServerCommand</span> {
-    <span class="ident">NewMessage</span>(<span class="ident">User</span>, <span class="ident">Message</span>),
+    <span class="ident">UserMessage</span>(<span class="ident">User</span>, <span class="ident">Message</span>),
     <span class="ident">ServerMessage</span>(<span class="ident">Message</span>),
-    <span class="ident">NewUserList</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">User</span><span class="op">&gt;</span>),
+    <span class="ident">UserList</span>(<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">User</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span>),
+    <span class="ident">Error</span>(<span class="ident">String</span>),
 }
 
 <span class="doccomment">/// Peer (inside the server) needs to receive messages from...</span>
